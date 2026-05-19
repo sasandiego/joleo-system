@@ -1,7 +1,7 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-19 (M6 complete)
+Last updated: 2026-05-19 (M8 complete)
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
@@ -60,9 +60,26 @@ Last updated: 2026-05-19 (M6 complete)
 - `src/app/api/quotes/[id]/pdf/route.tsx` — PDF download route (auth-guarded)
 - `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
 
-## 🔨 In Progress
-### M7 — Bookings + Calendar
-- Next: Booking list, booking detail, weekly truck availability calendar
+### M7 — Bookings + Calendar ⭐
+- `src/features/booking/state-machine.ts` — FSM with `canTransition()`, `BookingTransitionError`, `BookingConflictError`
+- `src/actions/bookings.ts` — `transitionBookingAction` (validates FSM, conflict check, audit log), `updateBookingAssignmentAction`, `createBookingAction`
+- `/bookings` — list with search + status filter, truck pill badges, status badges
+- `/bookings/new` — standalone booking form
+- `/bookings/[id]` — assignment form (truck/driver/helpers/date/time) + status transition buttons
+- `/calendar` — week grid (trucks × days), color-coded booking blocks, week nav via URL `?week=`
+- `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
+
+### M8 — Dashboard ⭐
+- `/dashboard` — live stat cards (Active Bookings, Fleet Active, Quotes MTD, Revenue MTD)
+- Today's Schedule table with real booking data
+- `pnpm build` ✅ clean | Committed + pushed
+
+### M9 — Dockerize + Deploy
+- Already complete from M1 (`docker-compose.yml`, `Dockerfile`, `docker/Caddyfile`, Cloudflare Tunnel config)
+- `output: "standalone"` in `next.config.ts`
+
+### M10 — Polish + Testing
+- `TEST_GUIDE.md` — full manual testing walkthrough for all Phase 1 features
 
 ## 🧪 Experimental (treat as fragile)
 _(none)_
@@ -80,7 +97,7 @@ _(none)_
 | M4 | Rate Settings | ✅ Complete |
 | M5 | Pricing Engine | ✅ Complete |
 | M6 | Quote Builder | ✅ Complete |
-| M7 | Bookings + Calendar | 🔨 In Progress |
-| M8 | Dashboard | ⬜ Not started |
-| M9 | Dockerize + Deploy | ⬜ Not started |
-| M10 | Polish + Testing | ⬜ Not started |
+| M7 | Bookings + Calendar | ✅ Complete |
+| M8 | Dashboard | ✅ Complete |
+| M9 | Dockerize + Deploy | ✅ Complete |
+| M10 | Polish + Testing | ✅ Complete |

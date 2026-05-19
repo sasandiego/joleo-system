@@ -1,12 +1,12 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-19 — M6 complete
+2026-05-19 — All milestones complete (M1–M10)
 
 ## Current System State
-Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete and pushed to GitHub (`main`). Quote builder live: two-column form, live Decimal.js pricing, save as draft, save & convert to booking, PDF download. Login with `jess` / `admin123` (or credentials in `.env.local`).
+Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 milestones (M1–M10) complete and pushed to GitHub (`main`). Full feature set: auth, masterlists CRUD, rate settings, pricing engine, quote builder + PDF, bookings with FSM, truck availability calendar, live dashboard. Login with `jess` / `admin123` (or credentials in `.env.local`).
 
-**Next milestone: M7 — Bookings + Calendar** (booking list, booking detail, weekly truck availability calendar)
+**Phase 1 is complete. Phase 2 (customer-facing portal) is parked.**
 
 ---
 
@@ -27,6 +27,11 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete 
 - `(admin)/quotes/page.tsx` — quotes list, serializes finalPrice .toNumber()
 - `(admin)/quotes/new/page.tsx` — loads clients/truckTypes/routeAreas/settings, serializes all Decimals
 - `(admin)/quotes/[id]/page.tsx` — quote detail with pricingSnapshot breakdown + Download PDF link
+- `(admin)/bookings/page.tsx` — bookings list, includes client/truck/driver/quote
+- `(admin)/bookings/new/page.tsx` — standalone booking creation form
+- `(admin)/bookings/[id]/page.tsx` — booking detail with assignment form + status transitions
+- `(admin)/calendar/page.tsx` — week grid; `?week=YYYY-MM-DD` param; loads trucks + bookings for week
+- `(admin)/dashboard/page.tsx` — live stats + today's schedule
 
 ### Components (`src/components/`)
 - `layout/Sidebar.tsx` — nav-dot items, "Transport · Admin", active state via usePathname
@@ -39,6 +44,10 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete 
 - `quotes/QuoteBuilderForm.tsx` — client component: useState all fields, useMemo live pricing
 - `quotes/PriceBreakdownPanel.tsx` — live breakdown panel: line items + tier grid + warnings
 - `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document
+- `bookings/BookingListClient.tsx` — filterable bookings table (search, status, date)
+- `bookings/BookingDetailClient.tsx` — assignment form + FSM status transitions
+- `bookings/NewBookingForm.tsx` — standalone booking creation
+- `bookings/TruckCalendar.tsx` — week grid with booking blocks and unavailable stripes
 
 ### Actions (`src/actions/`)
 - `auth.ts` — loginAction, signOutAction
@@ -46,6 +55,7 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete 
 - `trucks.ts`, `drivers.ts`, `helpers.ts`, `clients.ts`, `route-areas.ts` — upsert actions
 - `rate-settings.ts` — updateRateSettingsAction (AuditLog with before/after)
 - `quotes.ts` — saveQuoteAction (QT number gen, computePrice, Quote + optional Booking creation)
+- `bookings.ts` — transitionBookingAction (FSM + conflict check + audit), updateBookingAssignmentAction, createBookingAction
 
 ### Features
 - `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma)
@@ -53,6 +63,7 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete 
 - `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, LineItem, PricingWarning
 - `src/features/pricing/engine.ts` — pure `computePrice(input, ctx): PricingResult`
 - `src/features/pricing/engine.test.ts` — 8 test cases, 41 assertions
+- `src/features/booking/state-machine.ts` — DRAFT→QUOTED→CONFIRMED→DISPATCHED→COMPLETED / CANCELLED FSM
 
 ### Lib
 - `src/lib/db.ts`, `env.ts`, `format.ts`, `utils.ts`
@@ -114,7 +125,13 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete 
 
 ---
 
-## Next Steps (M6 — Quote Builder)
+## Phase 1 Complete — No Pending Next Steps
+
+All 10 milestones are done. Phase 2 (customer portal) is parked.
+
+---
+
+## Reference: M6 Quote Builder Details (archived)
 
 ### What M6 delivers
 1. `/quotes` — list page (quoteNo, client, status, amount, date, actions)
