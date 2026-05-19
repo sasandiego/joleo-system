@@ -1,12 +1,12 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-19 — M4 complete
+2026-05-19 — M5 complete
 
 ## Current System State
-Next.js 15.5 app, `pnpm build` clean, all 13 routes compile. M1–M4 complete and pushed to GitHub (`main`). DB seeded with real mockup data. Login with `jess` / `admin123` (or whichever credentials are in `.env.local`). All masterlist CRUD pages and rate settings page are working.
+Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M5 complete and pushed to GitHub (`main`). Pricing engine is live and tested. All masterlist CRUD + rate settings working. Login with `jess` / `admin123` (or credentials in `.env.local`).
 
-**Next milestone: M5 — Pricing Engine** (highest risk — pure TypeScript, must match Excel output to ±₱0.01)
+**Next milestone: M6 — Quote Builder** (form + live pricing breakdown + PDF + save/convert to booking)
 
 ---
 
@@ -17,154 +17,143 @@ Next.js 15.5 app, `pnpm build` clean, all 13 routes compile. M1–M4 complete an
 - `api/auth/[...nextauth]/route.ts` — Auth.js handlers
 - `(admin)/layout.tsx` — grid: 240px Sidebar + main; reads session from auth()
 - `(admin)/dashboard/page.tsx` — stub stat card placeholders
-- `(admin)/trucks/page.tsx` — trucks list, includes truckType, no Decimal serialization needed
+- `(admin)/trucks/page.tsx` — trucks list, includes truckType
 - `(admin)/drivers/page.tsx` — serializes dailyRate/otRate .toNumber()
 - `(admin)/helpers/page.tsx` — serializes dailyRate/otRate .toNumber()
 - `(admin)/clients/page.tsx` — no Decimal fields
 - `(admin)/route-areas/page.tsx` — serializes surcharge/estimatedToll .toNumber()
-- `(admin)/rate-settings/page.tsx` — serializes all Decimals + pct fields × 100 for display
+- `(admin)/rate-settings/page.tsx` — serializes all Decimals + pct × 100 for display
 - `(admin)/users/page.tsx` — users list, no Decimals
+- `(admin)/quotes/page.tsx` — ⬜ not yet built
+- `(admin)/quotes/new/page.tsx` — ⬜ not yet built
 
 ### Components (`src/components/`)
-- `layout/Sidebar.tsx` — nav-dot items (no icons), "Transport · Admin", active state via usePathname
-- `layout/PageHeader.tsx` — reusable page header (title + subtitle + children slot)
+- `layout/Sidebar.tsx` — nav-dot items, "Transport · Admin", active state via usePathname
+- `layout/PageHeader.tsx` — reusable page header
 - `auth/LoginForm.tsx` — useActionState + useFormStatus
 - `users/ResetPasswordDialog.tsx` — Radix Dialog
-- `trucks/TruckListClient.tsx` + `TruckDialog.tsx`
-- `drivers/DriverListClient.tsx` + `DriverDialog.tsx`
-- `helpers/HelperListClient.tsx` + `HelperDialog.tsx`
-- `clients/ClientListClient.tsx` + `ClientDialog.tsx` + `ToggleClientButton.tsx`
-- `route-areas/RouteAreaListClient.tsx` + `RouteAreaDialog.tsx`
+- `trucks/`, `drivers/`, `helpers/`, `clients/`, `route-areas/` — ListClient + Dialog per entity
 - `rate-settings/RateSettingsForm.tsx` — full settings form + change log dialog
 
 ### Actions (`src/actions/`)
 - `auth.ts` — loginAction, signOutAction
-- `users.ts` — resetPasswordAction (bcrypt 12 rounds, writes AuditLog)
-- `trucks.ts` — upsertTruckAction
-- `drivers.ts` — upsertDriverAction
-- `helpers.ts` — upsertHelperAction
-- `clients.ts` — upsertClientAction, toggleClientStatusAction
-- `route-areas.ts` — upsertRouteAreaAction
-- `rate-settings.ts` — updateRateSettingsAction (writes AuditLog with before/after)
+- `users.ts` — resetPasswordAction
+- `trucks.ts`, `drivers.ts`, `helpers.ts`, `clients.ts`, `route-areas.ts` — upsert actions
+- `rate-settings.ts` — updateRateSettingsAction (AuditLog with before/after)
+- `quotes.ts` — ⬜ not yet built
 
-### Features / Lib
-- `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma, for middleware)
+### Features
+- `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma)
 - `src/features/auth/config.ts` — full NextAuth config with bcryptjs + Prisma
-- `src/middleware.ts` — protects all routes via edge config
-- `src/lib/db.ts` — Prisma singleton
-- `src/lib/env.ts` — Zod-validated env vars
-- `src/lib/format.ts` — formatCurrency (en-PH), formatDate (Asia/Manila)
-- `src/lib/utils.ts` — cn() utility
+- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, LineItem, PricingWarning
+- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx): PricingResult`
+- `src/features/pricing/engine.test.ts` — 8 test cases, 41 assertions
+
+### Lib
+- `src/lib/db.ts`, `env.ts`, `format.ts`, `utils.ts`
+- `src/middleware.ts` — auth guard via edge config
 - `src/types/next-auth.d.ts` — session/user/JWT type augmentation
 
-### Schema models (all in `prisma/schema.prisma`)
-- User, TruckType, Truck, Driver, Helper, Client, RouteArea — all seeded
-- RateSettings — singleton (id=1), seeded with values from PRICING_MATRIX
-- Quote, Booking, BookingHelper, AuditLog — schema only, not yet used
+### Schema models
+- User, TruckType, Truck, Driver, Helper, Client, RouteArea, RateSettings — all seeded
+- Quote, Booking, BookingHelper, AuditLog — schema ready, not yet used in UI
 
 ---
 
 ## Key Decisions
 
-### Decision: Pricing engine (M5 critical)
-- Engine must live at `src/features/pricing/engine.ts` as a **pure function** — no DB access
-- Caller resolves `RateSettings` and `TruckType` from DB, passes them into `computePrice(input, ctx)`
-- Pct fields in DB are fractions (0.05 = 5%). Engine receives raw fractions — do NOT multiply by 100 inside engine
-- `src/features/pricing/engine.test.ts` — Vitest parity tests; must match Excel to ±₱0.01
-- Reference test case from build guide: 14FT_6W (V6), 60 km, 1 helper, no flags → target ~₱18,532
+### Decision: Pricing engine — pure function, corrected Excel
+- Engine lives at `src/features/pricing/engine.ts` — no DB access, no side effects
+- Caller resolves `RateSettings` + `TruckType` from DB and passes them in
+- Pct fields in DB are fractions (0.05 = 5%) — engine receives raw fractions, do NOT ×100
+- Excel had broken cell refs for steps 1 (truck base rate) and 16 (maintenance) — both showed 0
+- Our engine INCLUDES both — corrected V6 reference: 100km, 2 helpers, condo, outOfTown → **₱18,532** (not ₱11,209.60)
+- Do NOT change formula unless business explicitly requests the Excel's broken behavior
+
+### Decision: Engine context uses structural interfaces, not Prisma types
+- `TruckTypeForPricing` and `RateSettingsForPricing` use `{ toNumber(): number }` for Decimal fields
+- Prisma objects satisfy these interfaces directly — no `.toNumber()` conversion at call site
+- Test objects: `new Decimal(value)` satisfies the interface
 
 ### Decision: No backup service in Phase 1
-- Deferred; docker-compose has 4 services (postgres/web/caddy/cloudflared), no backup
-- Will be added post-Phase 1 polish
+- Deferred; 4-container stack only (postgres/web/caddy/cloudflared)
 
 ### Decision: Quote/Booking number format
-- QT-YYYYMMDD-NNNN / JOL-YYYYMMDD-NNNN, sequence resets daily (Asia/Manila TZ)
-- User requested date-identifiable format
+- QT-YYYYMMDD-NNNN / JOL-YYYYMMDD-NNNN — daily sequence, Asia/Manila TZ
+- Sequence resets to 0001 each calendar day
 
 ### Decision: Tailwind v4 CSS-based config
-- Brand tokens in @theme block inside globals.css — no tailwind.config.js
-- Do NOT add tailwind.config.js
+- Brand tokens in @theme in globals.css — no tailwind.config.js ever
 
 ### Decision: Auth.js v5 split config
-- `config.edge.ts` (no Prisma) for middleware, `config.ts` (with Prisma) for API + server components
-- Middleware: `import NextAuth from "next-auth"; export default NextAuth(authConfigEdge).auth`
+- `config.edge.ts` (no Prisma) for middleware, `config.ts` for API + server components
 
 ### Decision: Rate Settings pct field convention
-- Stored in DB as fractions: 0.05 = 5%, 0.15 = 15%
-- Page serializes: `raw.fuelSurchargePct.toNumber() * 100` → form shows `5`
-- Action receives `5` from form → divides by 100 → stores `0.05`
+- Stored as fractions: 0.05 = 5%. Page ×100 for display; action ÷100 before save
 - Engine receives raw fractions directly from DB
 
 ### Decision: Decimal serialization at server/client boundary
-- Prisma Decimal objects cannot cross server→client boundary in Next.js
-- Pattern: call `.toNumber()` in the server page component before passing as props
-- Applies to: Driver, Helper (dailyRate, otRate), RouteArea (surcharge, estimatedToll), RateSettings (all Decimal fields)
+- Call `.toNumber()` in server page components before passing as props
+- Applies to: Driver, Helper, RouteArea, RateSettings Decimal fields
 
 ---
 
 ## Active Gotchas
 - Tailwind v4: `@import "tailwindcss"` in globals.css, `@tailwindcss/postcss` in postcss.config.mjs
-- Auth.js v5: package is `next-auth@beta`; AUTH_TRUST_HOST=true in .env.local (not NEXTAUTH_URL)
-- `jose` v6 logs Edge Runtime CompressionStream warnings — harmless, known upstream issue
+- Auth.js v5: `next-auth@beta`; `AUTH_TRUST_HOST=true` in .env.local (not NEXTAUTH_URL)
+- `jose` v6 Edge Runtime CompressionStream warnings — harmless, known upstream issue
 - `env.ts` validates at startup — missing required var = app won't start
-- Sidebar uses inline styles (not Tailwind classes) for SSR brand var consistency
-- All Dialog components use `@radix-ui/react-dialog` — already installed
-- After `pnpm db:seed` re-run: safe (all upserts)
+- Sidebar uses inline styles for SSR brand var consistency
+- All Dialogs use `@radix-ui/react-dialog` — already installed
+- `decimal.js` already installed — use it for all currency math
 
 ---
 
-## Next Steps (M5 — Pricing Engine)
+## Next Steps (M6 — Quote Builder)
+
+### What M6 delivers
+1. `/quotes` — list page (quoteNo, client, status, amount, date, actions)
+2. `/quotes/new` — two-column builder: form left, live `PriceBreakdownPanel` right
+3. Save as draft action → writes Quote row with `pricingSnapshot` JSON
+4. PDF generation via `@react-pdf/renderer` at `/api/quotes/[id]/pdf`
+5. "Convert to Booking" action → creates Booking from Quote
 
 ### Files to create
-- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, LineItem types
-- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx): PricingResult`
-- `src/features/pricing/engine.test.ts` — Vitest parity tests (5+ cases vs Excel)
+- `src/app/(admin)/quotes/page.tsx` — server component, quotes list
+- `src/app/(admin)/quotes/new/page.tsx` — server component, loads clients + truck types + rate settings + route areas
+- `src/app/(admin)/quotes/[id]/page.tsx` — quote detail / view
+- `src/components/quotes/QuoteBuilderForm.tsx` — client component form
+- `src/components/quotes/PriceBreakdownPanel.tsx` — client component, recomputes on every change
+- `src/components/quotes/QuoteListClient.tsx` — client component list
+- `src/components/pdf/QuotationPDF.tsx` — @react-pdf/renderer document
+- `src/app/api/quotes/[id]/pdf/route.ts` — PDF download route
+- `src/actions/quotes.ts` — saveQuoteAction, convertToBookingAction
 
-### Engine input shape
+### Quote number generation
 ```typescript
-interface PricingInput {
-  truckTypeId: string;
-  estimatedDistanceKm: number;
-  estimatedHours: number;
-  numberOfHelpers: number;
-  numberOfDropoffs: number;
-  condoService: boolean;
-  cateringService: boolean;
-  nightDelivery: boolean;
-  additionalHelper: boolean;
-  outOfTown: boolean;
-  longDistance: boolean;
-  tollFee: Decimal;
-  parkingFee: Decimal;
-  fuelPriceOverride?: Decimal;
-  discountAmount: Decimal;
-  vatOption: VatOption;
-}
-
-interface PricingContext {
-  truckType: TruckType;     // from DB, Decimal fields intact
-  settings: RateSettings;   // from DB, Decimal fields intact
-}
+// QT-YYYYMMDD-NNNN — daily sequence reset, Asia/Manila TZ
+// In saveQuoteAction:
+const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }).replace(/-/g, "");
+const count = await db.quote.count({ where: { quoteNo: { startsWith: `QT-${today}-` } } });
+const quoteNo = `QT-${today}-${String(count + 1).padStart(4, "0")}`;
 ```
 
-### Key formula reference (from build guide)
-- Step 1: Truck base rate (from TruckType.minBaseRate)
-- Step 2: Fuel cost = distance / fuelKmPerLiter × dieselPrice × (1 + fuelSurchargePct)
-- Step 3: Driver cost = driverDailyRate + OT hours × driverOtRate
-- Step 4: Helper cost = numberOfHelpers × (helperDailyRate + OT × helperOtRate)
-- Steps 5–13: Add applicable surcharges/fees (condo, catering, dropoffs, night, waiting, distance, out-of-town, long-distance)
-- Step 14: Toll + parking pass-through
-- Step 15: Direct cost = sum of steps 1–14
-- Step 16: Maintenance = direct × maintenancePctOfBase
-- Step 17: Overhead = direct × overheadPctOfDirect
-- Step 18: Contingency = direct × contingencyPctOfDirect
-- Step 19: Total cost = steps 15–18
-- Step 20–22: Apply margin (floor/target/ceiling) → floor price, target price, ceiling price
-- Step 23: Apply discount
-- Step 24: VAT handling (VAT_INCLUSIVE / VAT_EXCLUSIVE / NON_VAT)
-- Step 25: Final price
+### Live pricing recompute pattern
+- `QuoteBuilderForm` holds all form state in `useState`
+- On every field change → call a client-side `recomputePrice()` function
+- `recomputePrice()` calls `computePrice(input, ctx)` directly (imported from engine)
+- Context (truckTypes, settings) passed as props from the server page
+- No server round-trip for price preview — all client-side Decimal.js computation
 
-### Test case from build guide
-- Truck: 14FT_6W (V6), minBaseRate=4500, fuelKmPerLiter=5.0, excessHourRate=200
-- Distance: 60 km, Hours: 8 (no OT), 1 helper, no special flags, diesel=70, fuelSurcharge=5%
-- Expected target price: ~₱18,532 (use this to verify engine is correct)
+### pricingSnapshot shape
+- Stored as JSON in `Quote.pricingSnapshot`
+- Full `PricingResult` object — includes `rateSnapshot` (copy of settings used) and `inputsSnapshot`
+
+### Key schema fields for Quote
+- `quoteNo` String unique
+- `status` String ("DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED")
+- `clientId` + `walkInName` — one or the other
+- `pricingSnapshot` Json — full PricingResult at time of save
+- `finalPrice` Decimal — targetPrice from engine
+- `manualOverridePrice` Decimal? — if admin overrides
+- `createdById` String — from session.user.id

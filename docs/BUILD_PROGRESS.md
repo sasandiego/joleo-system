@@ -14,43 +14,44 @@ Last updated: 2026-05-19
 - Sidebar component — all 3 sections, nav-dot active state, brand mark, footer
 - Admin layout shell (240px sidebar + main grid)
 - Dashboard stub page (stat cards + today's schedule)
-- Login stub page
 - CLAUDE.md + docs/ context files created
-- docker-compose.yml (no backup service), docker-compose.dev.yml, Dockerfile
+- docker-compose.yml, docker-compose.dev.yml, Dockerfile
 - ESLint config (flat config for Next.js 15)
-- `pnpm build` ✅ clean | ESLint ✅ clean | `pnpm dev` ✅ 200 on /dashboard
 
 ### M2 — Auth + Users
-- Auth.js v5 split config: `src/features/auth/config.edge.ts` (middleware) + `config.ts` (full)
-- Login page — two-column layout matching mockup exactly (white form left, maroon visual right)
-- Sidebar updated — nav-dots only (no icons), "Transport · Admin" tagline, "Owner · Admin" footer
-- Middleware protects all routes; unauthenticated → /login; logged-in on /login → /dashboard
-- Seed script (`prisma/seed.ts`) — 7 truck types, 17 trucks, 9 drivers, 7 helpers, 8 route areas, 5 clients, RateSettings, 3 admin users (real plate numbers from mockup)
-- Users page (`/users`) — list with role/status badges, password reset dialog (Radix UI)
-- Server actions: `loginAction`, `signOutAction`, `resetPasswordAction`
-- Session data flows into sidebar footer (real user name/initials from JWT)
-- `pnpm build` ✅ clean | `pnpm db:seed` ✅ | Login ✅ | Middleware ✅ | Users page ✅
+- Auth.js v5 split config: config.edge.ts (middleware) + config.ts (full)
+- Login page — two-column layout matching mockup
+- Middleware protects all routes; unauthenticated → /login
+- Seed: 7 truck types, 17 trucks, 9 drivers, 7 helpers, 8 route areas, 5 clients, RateSettings, 3 admin users
+- Users page — list, role/status badges, password reset dialog
+- Server actions: loginAction, signOutAction, resetPasswordAction
 
 ### M3 — Masterlists CRUD
-- Trucks page — list table, TruckDialog (add/edit), truck type select, status badge
-- Drivers page — list table, DriverDialog (add/edit), Decimal rate serialization
-- Helpers page — list table, HelperDialog (add/edit), Decimal rate serialization
-- Clients page — list table, ClientDialog (add/edit), ToggleClientButton (active/inactive)
-- Route Areas page — list table, RouteAreaDialog (add/edit), long-distance badge
-- All server actions: Zod validation, upsert pattern, P2002 duplicate handling, revalidatePath
-- `pnpm build` ✅ clean | All 5 pages load | CRUD works | Decimal serialization correct
+- Trucks, Drivers, Helpers, Clients, Route Areas pages — list + add/edit dialogs
+- All server actions: Zod validation, upsert, P2002 handling, revalidatePath
+- Decimal serialization at server/client boundary (.toNumber() in page components)
 
 ### M4 — Rate Settings
-- Single-form settings page covering all 25 RateSettings fields (6 sections)
-- VAT rate readonly (locked at 12%)
-- Percentage fields stored as fractions, displayed as whole numbers (0.05 ↔ 5)
-- Save action: Zod validation → update DB → write AuditLog with before/after snapshot
-- "View change log" dialog — last 20 changes, shows field-level diffs (red → green)
-- README updated with full NUCBox first-time setup + Cloudflare Tunnel guide
-- `pnpm build` ✅ clean | All 13 routes compile | Committed + pushed to GitHub
+- Single-form page, all 25 RateSettings fields in 6 sections
+- VAT rate readonly; pct fields stored as fractions, displayed × 100
+- Save → AuditLog with before/after snapshot; View change log dialog
+- README updated with full NUCBox setup + Cloudflare Tunnel guide
+
+### M5 — Pricing Engine ⭐
+- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, LineItem, PricingWarning
+- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx)`, all Decimal.js, no DB access
+- 16 computation steps (truck base rate through maintenance allowance)
+- Overhead (10%) + contingency (3%) on direct cost; floor/target/ceiling margin prices
+- VAT_INCLUSIVE / VAT_EXCLUSIVE / NON_VAT handling
+- 3 warnings: PRICE_VS_FLOOR, JOB_HOURS, PROFIT_MARGIN
+- `src/features/pricing/engine.test.ts` — 8 test cases, **41/41 tests pass**
+- Key correction: Excel had broken cell refs for steps 1 & 16 (both showed 0)
+  Engine includes both — corrected V6 reference target = ₱18,532 (not ₱11,209.60)
+- `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
 
 ## 🔨 In Progress
-_(none — ready for M5)_
+### M6 — Quote Builder
+- Next: Quote list page + new quote page (form left, live breakdown right)
 
 ## 🧪 Experimental (treat as fragile)
 _(none)_
@@ -66,8 +67,8 @@ _(none)_
 | M2 | Auth + Users | ✅ Complete |
 | M3 | Masterlists CRUD | ✅ Complete |
 | M4 | Rate Settings | ✅ Complete |
-| M5 | Pricing Engine | ⬜ Not started |
-| M6 | Quote Builder | ⬜ Not started |
+| M5 | Pricing Engine | ✅ Complete |
+| M6 | Quote Builder | 🔨 In Progress |
 | M7 | Bookings + Calendar | ⬜ Not started |
 | M8 | Dashboard | ⬜ Not started |
 | M9 | Dockerize + Deploy | ⬜ Not started |
