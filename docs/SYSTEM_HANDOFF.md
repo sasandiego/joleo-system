@@ -1,12 +1,12 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-19 — M5 complete
+2026-05-19 — M6 complete
 
 ## Current System State
-Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M5 complete and pushed to GitHub (`main`). Pricing engine is live and tested. All masterlist CRUD + rate settings working. Login with `jess` / `admin123` (or credentials in `.env.local`).
+Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M6 complete and pushed to GitHub (`main`). Quote builder live: two-column form, live Decimal.js pricing, save as draft, save & convert to booking, PDF download. Login with `jess` / `admin123` (or credentials in `.env.local`).
 
-**Next milestone: M6 — Quote Builder** (form + live pricing breakdown + PDF + save/convert to booking)
+**Next milestone: M7 — Bookings + Calendar** (booking list, booking detail, weekly truck availability calendar)
 
 ---
 
@@ -24,8 +24,9 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M5 complete 
 - `(admin)/route-areas/page.tsx` — serializes surcharge/estimatedToll .toNumber()
 - `(admin)/rate-settings/page.tsx` — serializes all Decimals + pct × 100 for display
 - `(admin)/users/page.tsx` — users list, no Decimals
-- `(admin)/quotes/page.tsx` — ⬜ not yet built
-- `(admin)/quotes/new/page.tsx` — ⬜ not yet built
+- `(admin)/quotes/page.tsx` — quotes list, serializes finalPrice .toNumber()
+- `(admin)/quotes/new/page.tsx` — loads clients/truckTypes/routeAreas/settings, serializes all Decimals
+- `(admin)/quotes/[id]/page.tsx` — quote detail with pricingSnapshot breakdown + Download PDF link
 
 ### Components (`src/components/`)
 - `layout/Sidebar.tsx` — nav-dot items, "Transport · Admin", active state via usePathname
@@ -34,13 +35,17 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. M1–M5 complete 
 - `users/ResetPasswordDialog.tsx` — Radix Dialog
 - `trucks/`, `drivers/`, `helpers/`, `clients/`, `route-areas/` — ListClient + Dialog per entity
 - `rate-settings/RateSettingsForm.tsx` — full settings form + change log dialog
+- `quotes/QuoteListClient.tsx` — quotes table with status badges
+- `quotes/QuoteBuilderForm.tsx` — client component: useState all fields, useMemo live pricing
+- `quotes/PriceBreakdownPanel.tsx` — live breakdown panel: line items + tier grid + warnings
+- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document
 
 ### Actions (`src/actions/`)
 - `auth.ts` — loginAction, signOutAction
 - `users.ts` — resetPasswordAction
 - `trucks.ts`, `drivers.ts`, `helpers.ts`, `clients.ts`, `route-areas.ts` — upsert actions
 - `rate-settings.ts` — updateRateSettingsAction (AuditLog with before/after)
-- `quotes.ts` — ⬜ not yet built
+- `quotes.ts` — saveQuoteAction (QT number gen, computePrice, Quote + optional Booking creation)
 
 ### Features
 - `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma)

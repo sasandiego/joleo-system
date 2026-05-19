@@ -1,7 +1,7 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-19
+Last updated: 2026-05-19 (M6 complete)
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
@@ -49,9 +49,20 @@ Last updated: 2026-05-19
   Engine includes both — corrected V6 reference target = ₱18,532 (not ₱11,209.60)
 - `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
 
+### M6 — Quote Builder ⭐
+- `src/actions/quotes.ts` — saveQuoteAction: QT number gen, computePrice, Quote + optional Booking
+- `src/app/(admin)/quotes/page.tsx` — list page with status badges + "New Quote" button
+- `src/app/(admin)/quotes/new/page.tsx` — server page loads context (clients/truckTypes/routeAreas/settings)
+- `src/app/(admin)/quotes/[id]/page.tsx` — detail view: info + flags + pricingSnapshot breakdown + PDF link
+- `src/components/quotes/QuoteBuilderForm.tsx` — two-column form, useMemo live pricing (no server round-trip)
+- `src/components/quotes/PriceBreakdownPanel.tsx` — live breakdown: line items + tier grid (Floor/Target/Ceiling) + warnings
+- `src/components/pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 quotation document
+- `src/app/api/quotes/[id]/pdf/route.tsx` — PDF download route (auth-guarded)
+- `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
+
 ## 🔨 In Progress
-### M6 — Quote Builder
-- Next: Quote list page + new quote page (form left, live breakdown right)
+### M7 — Bookings + Calendar
+- Next: Booking list, booking detail, weekly truck availability calendar
 
 ## 🧪 Experimental (treat as fragile)
 _(none)_
@@ -68,8 +79,8 @@ _(none)_
 | M3 | Masterlists CRUD | ✅ Complete |
 | M4 | Rate Settings | ✅ Complete |
 | M5 | Pricing Engine | ✅ Complete |
-| M6 | Quote Builder | 🔨 In Progress |
-| M7 | Bookings + Calendar | ⬜ Not started |
+| M6 | Quote Builder | ✅ Complete |
+| M7 | Bookings + Calendar | 🔨 In Progress |
 | M8 | Dashboard | ⬜ Not started |
 | M9 | Dockerize + Deploy | ⬜ Not started |
 | M10 | Polish + Testing | ⬜ Not started |
