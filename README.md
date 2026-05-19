@@ -89,23 +89,55 @@ Open [http://localhost:3000](http://localhost:3000) · Login with the credential
 
 ## Production Deployment (Nucbox)
 
-The stack runs as four Docker containers: `postgres`, `web` (Next.js), `caddy` (reverse proxy), `cloudflared` (tunnel).
+The stack runs as four Docker containers: `postgres`, `web` (Next.js), `caddy` (reverse proxy), `cloudflared` (tunnel). The Nucbox only needs **Docker** installed — no Node.js, no pnpm, no Postgres required on the host.
+
+### First-time setup
 
 ```bash
-# On the Nucbox
-cp .env.example .env
-# Fill in all values (AUTH_SECRET, POSTGRES_PASSWORD, CLOUDFLARE_TUNNEL_TOKEN, NEXTAUTH_URL)
+# 1. Clone the repo
+git clone https://github.com/sasandiego/joleo-system.git
+cd joleo-system
 
+# 2. Generate a secret
+openssl rand -base64 32   # copy the output — this is your AUTH_SECRET
+
+# 3. Create the environment file
+cp .env.example .env
+# Open .env and fill in:
+#   AUTH_SECRET        → the value from step 2
+#   POSTGRES_PASSWORD  → a strong password of your choice
+#   NEXTAUTH_URL       → your Cloudflare tunnel public URL (e.g. https://joleo.example.com)
+#   CLOUDFLARE_TUNNEL_TOKEN → from Cloudflare Zero Trust dashboard (see below)
+#   SEED_ADMIN_1_*, SEED_ADMIN_2_*, SEED_ADMIN_3_* → credentials for 3 admin accounts
+
+# 4. Start the stack (builds the Next.js image on first run)
 docker compose up -d --build
+
+# 5. Initialize the database (run once after first boot)
+docker compose exec web pnpm db:push
+docker compose exec web pnpm db:seed
 ```
 
 HTTPS is terminated by Cloudflare Tunnel — Caddy handles plain HTTP internally.
 
-### One-time setup
+### Cloudflare Tunnel setup (one-time)
 
-1. Create a Cloudflare Tunnel in the Zero Trust dashboard → copy the token to `CLOUDFLARE_TUNNEL_TOKEN`
-2. Set `NEXTAUTH_URL` to the public tunnel URL
-3. Run `docker compose exec web pnpm db:push && pnpm db:seed` to initialize the DB
+1. Go to [Cloudflare Zero Trust](https://one.dash.cloudflare.com) → **Networks → Tunnels → Create tunnel**
+2. Name it (e.g. `joleo-nucbox`), choose **Docker** as the connector
+3. Copy the `--token` value shown in the install command — that's your `CLOUDFLARE_TUNNEL_TOKEN`
+4. Add a public hostname: subdomain → `joleo.yourdomain.com`, service → `http://caddy:80`
+5. Set `NEXTAUTH_URL=https://joleo.yourdomain.com` in your `.env`
+
+### Subsequent deploys (after pulling updates)
+
+```bash
+git pull
+docker compose build web
+docker compose up -d web
+
+# Only if the database schema changed (check git log for prisma/schema.prisma changes):
+docker compose exec web pnpm db:push
+```
 
 ---
 
