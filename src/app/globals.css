@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand colors */
+  --color-maroon: #7B1E2E;
+  --color-maroon-dark: #5C1622;
+  --color-maroon-light: #9B2D40;
+  --color-maroon-tint: #FAF3F4;
+  --color-ink: #0A0A0A;
+  --color-ink-soft: #2A2A2A;
+  --color-muted: #6B6B6B;
+  --color-paper: #FFFFFF;
+  --color-surface: #FAFAF9;
+  --color-border: #E7E5E4;
+  --color-border-strong: #D6D3D1;
+  --color-success: #2F7D52;
+  --color-warning: #B8801C;
+  --color-danger: #B8362B;
+
+  /* Typography */
+  --font-display: var(--font-fraunces), serif;
+  --font-sans: var(--font-dm-sans), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+}
+
+:root {
+  /* CSS custom properties for direct var() usage in components */
+  --maroon: #7B1E2E;
+  --maroon-dark: #5C1622;
+  --maroon-light: #9B2D40;
+  --maroon-tint: #FAF3F4;
+  --ink: #0A0A0A;
+  --ink-soft: #2A2A2A;
+  --muted: #6B6B6B;
+  --paper: #FFFFFF;
+  --surface: #FAFAF9;
+  --border: #E7E5E4;
+  --border-strong: #D6D3D1;
+  --success: #2F7D52;
+  --warning: #B8801C;
+  --danger: #B8362B;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Truck ID pill — used across tables and cards */
+.truck-id-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--ink);
+  color: white;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Status badge base */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.badge-success { background: #E8F5EE; color: var(--success); }
+.badge-warning { background: #FEF3E2; color: var(--warning); }
+.badge-danger  { background: #FDECEA; color: var(--danger); }
+.badge-maroon  { background: var(--maroon-tint); color: var(--maroon); }
+.badge-neutral { background: #F4F4F4; color: var(--muted); }

@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Joleo Transport — Admin Portal Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --maroon: #7B1E2E;
+    --maroon-dark: #5C1622;
+    --maroon-light: #9B2D40;
+    --maroon-tint: #FAF3F4;
+    --ink: #0A0A0A;
+    --ink-soft: #2A2A2A;
+    --muted: #6B6B6B;
+    --paper: #FFFFFF;
+    --surface: #FAFAF9;
+    --border: #E7E5E4;
+    --border-strong: #D6D3D1;
+    --success: #2F7D52;
+    --warning: #B8801C;
+    --danger: #B8362B;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .display-font { font-family: 'Fraunces', serif; font-weight: 500; letter-spacing: -0.01em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ===== Mockup Navigator (top) ===== */
+  .mockup-nav {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 24px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .mockup-nav-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.5);
+    margin-right: 16px;
+    white-space: nowrap;
+  }
+  .mockup-nav button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: inherit;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .mockup-nav button:hover { color: white; border-color: rgba(255,255,255,0.4); }
+  .mockup-nav button.active {
+    background: var(--maroon);
+    color: white;
+    border-color: var(--maroon);
+  }
+
+  /* ===== Screen container ===== */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ===== App Shell ===== */
+  .app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 49px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--paper);
+    border-right: 1px solid var(--border);
+    padding: 28px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-brand {
+    padding: 0 24px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .brand-mark {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--maroon);
+    letter-spacing: -0.02em;
+  }
+  .brand-tagline {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .nav-section { padding: 0 12px; }
+  .nav-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    padding: 12px 12px 6px;
+    font-weight: 600;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .nav-item:hover { background: var(--surface); }
+  .nav-item.active {
+    background: var(--maroon-tint);
+    color: var(--maroon);
+  }
+  .nav-item.active .nav-dot { background: var(--maroon); }
+  .nav-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: transparent;
+  }
+  .nav-icon { width: 16px; height: 16px; opacity: 0.7; }
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--maroon);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 12px;
+  }
+  .user-info { flex: 1; }
+  .user-name { font-size: 13px; font-weight: 600; }
+  .user-role { font-size: 11px; color: var(--muted); }
+
+  /* Main content */
+  .main { padding: 32px 40px; max-width: 1400px; }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 24px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-title {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .page-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .page-actions { display: flex; gap: 10px; }
+
+  /* Buttons */
+  .btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 16px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary {
+    background: var(--maroon);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--maroon-dark); }
+  .btn-secondary {
+    background: white;
+    color: var(--ink);
+    border-color: var(--border-strong);
+  }
+  .btn-secondary:hover { background: var(--surface); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .btn-ghost:hover { background: var(--surface); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* Cards / Sections */
+  .card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .card-body { padding: 24px; }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat-value {
+    font-family: 'Fraunces', serif;
+    font-size: 34px;
+    font-weight: 500;
+    margin-top: 8px;
+    letter-spacing: -0.02em;
+  }
+  .stat-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .stat-meta.positive { color: var(--success); }
+  .stat-accent {
+    position: absolute;
+    top: 0; right: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--maroon);
+    opacity: 0.6;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    text-align: left;
+    padding: 12px 24px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  tbody td {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink-soft);
+  }
+  tbody tr:hover { background: var(--surface); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .badge-success { background: #E8F5EC; color: var(--success); }
+  .badge-warning { background: #FCF4E0; color: var(--warning); }
+  .badge-danger  { background: #FBEAE7; color: var(--danger); }
+  .badge-neutral { background: #F0EFEC; color: var(--ink-soft); }
+  .badge-maroon  { background: var(--maroon-tint); color: var(--maroon); }
+
+  /* Forms */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px 20px;
+  }
+  .form-grid.full { grid-template-columns: 1fr; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-group.span-2 { grid-column: span 2; }
+  .field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    letter-spacing: 0.01em;
+  }
+  .field-hint { font-size: 11px; color: var(--muted); }
+  .input, .select, .textarea {
+    font-family: inherit;
+    font-size: 13.5px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: white;
+    color: var(--ink);
+    transition: border 0.12s, box-shadow 0.12s;
+  }
+  .input:focus, .select:focus, .textarea:focus {
+    outline: none;
+    border-color: var(--maroon);
+    box-shadow: 0 0 0 3px rgba(123,30,46,0.08);
+  }
+  .input[readonly] { background: var(--surface); color: var(--muted); }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--maroon);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--maroon-tint);
+  }
+
+  /* Quote breakdown */
+  .breakdown-table { width: 100%; }
+  .breakdown-table td {
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 13px;
+  }
+  .breakdown-table td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .breakdown-table tr.subtotal td {
+    font-weight: 600;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 10px 0;
+  }
+  .breakdown-table tr.total td {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--maroon);
+    padding: 14px 0;
+    border-top: 2px solid var(--maroon);
+    border-bottom: none;
+  }
+
+  /* Price tier card */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .tier-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .tier-card.selected {
+    border-color: var(--maroon);
+    background: var(--maroon-tint);
+  }
+  .tier-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tier-card.selected .tier-label { color: var(--maroon); }
+  .tier-value {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 500;
+    margin-top: 6px;
+  }
+
+  /* Alert */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .alert-success { background: #E8F5EC; border: 1px solid #C5E4CF; color: var(--success); }
+  .alert-warning { background: #FCF4E0; border: 1px solid #F0DFA8; color: var(--warning); }
+
+  /* Calendar */
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: 120px repeat(7, 1fr);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: white;
+  }
+  .cal-header {
+    padding: 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .cal-header.day-label {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .cal-header .day-num {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .cal-truck-cell {
+    padding: 12px;
+    border-right: 1px solid var(--border);
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .cal-truck-id { font-weight: 600; }
+  .cal-truck-type { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .cal-cell {
+    padding: 6px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    min-height: 56px;
+    position: relative;
+  }
+  .cal-booking {
+    background: var(--maroon);
+    color: white;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 3px;
+  }
+  .cal-booking.confirmed { background: var(--maroon); }
+  .cal-booking.draft { background: white; color: var(--ink-soft); border: 1px dashed var(--border-strong); }
+  .cal-booking.dispatched { background: var(--ink); }
+  .cal-cell.unavailable {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--surface),
+      var(--surface) 6px,
+      #F0EFEC 6px,
+      #F0EFEC 12px
+    );
+  }
+
+  /* Login screen */
+  .login-wrap {
+    min-height: calc(100vh - 49px);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .login-form-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    background: white;
+  }
+  .login-form {
+    width: 100%;
+    max-width: 380px;
+  }
+  .login-brand {
+    font-family: 'Fraunces', serif;
+    font-size: 38px;
+    font-weight: 500;
+    color: var(--maroon);
+    letter-spacing: -0.02em;
+  }
+  .login-tag {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 4px;
+    margin-bottom: 40px;
+  }
+  .login-title {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .login-sub {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+  .login-visual-side {
+    background: var(--maroon);
+    color: white;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+  .login-visual-side::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: var(--maroon-light);
+    opacity: 0.3;
+  }
+  .login-visual-side::after {
+    content: '';
+    position: absolute;
+    bottom: -150px; left: -100px;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: var(--maroon-dark);
+    opacity: 0.4;
+  }
+  .login-quote {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    line-height: 1.2;
+    font-weight: 400;
+    position: relative;
+    z-index: 1;
+    letter-spacing: -0.02em;
+  }
+  .login-meta {
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Filters */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 240px;
+    max-width: 360px;
+    position: relative;
+  }
+  .search-input input {
+    width: 100%;
+    padding-left: 36px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  /* Two-column layout for forms */
+  .split-layout {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  /* Settings grid */
+  .settings-section { margin-bottom: 32px; }
+  .setting-row {
+    display: grid;
+    grid-template-columns: 2fr 120px 1fr;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-weight: 500; font-size: 13.5px; }
+  .setting-note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .setting-input { text-align: right; }
+
+  /* Status pill in tables */
+  .truck-id-pill {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--ink);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Detail bar - booking detail */
+  .detail-strip {
+    background: var(--ink);
+    color: white;
+    padding: 20px 24px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr) auto;
+    gap: 24px;
+    align-items: center;
+  }
+  .detail-strip-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+  .detail-strip-value {
+    font-size: 15px;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .detail-strip-value.big {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+  }
+
+  /* Footer note */
+  .footer-note {
+    margin-top: 40px;
+    padding: 16px;
+    background: var(--maroon-tint);
+    border-left: 3px solid var(--maroon);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  /* Icons (inline SVG sized) */
+  svg.icon { width: 16px; height: 16px; stroke-width: 1.8; flex-shrink: 0; }
+
+  /* Layout helpers */
+  .row { display: flex; align-items: center; gap: 12px; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .between { justify-content: space-between; }
+  .grow { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- ============= MOCKUP NAVIGATOR ============= -->
+<div class="mockup-nav">
+  <span class="mockup-nav-label">Mockup Screens →</span>
+  <button data-screen="login" class="active">1. Login</button>
+  <button data-screen="dashboard">2. Dashboard</button>
+  <button data-screen="quote">3. New Quote</button>
+  <button data-screen="bookings">4. Bookings List</button>
+  <button data-screen="calendar">5. Truck Availability</button>
+  <button data-screen="trucks">6. Trucks Masterlist</button>
+  <button data-screen="rates">7. Rate Settings</button>
+</div>
+
+<!-- ============= 1. LOGIN ============= -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-form-side">
+      <div class="login-form">
+        <div class="login-brand">Joleo</div>
+        <div class="login-tag">Transport · Admin Portal</div>
+
+        <div class="login-title">Welcome back</div>
+        <div class="login-sub">Sign in to manage trucks, quotes, and bookings.</div>
+
+        <div class="stack" style="gap: 16px;">
+          <div class="field-group">
+            <label class="field-label">Username</label>
+            <input class="input" type="text" placeholder="e.g. admin" />
+          </div>
+          <div class="field-group">
+            <label class="field-label">Password</label>
+            <input class="input" type="password" placeholder="••••••••" />
+          </div>
+          <button class="btn btn-primary" style="margin-top: 8px; padding: 11px;">Sign in</button>
+        </div>
+
+        <div style="margin-top: 32px; font-size: 12px; color: var(--muted);">
+          Authorized admins only · Contact owner for access
+        </div>
+      </div>
+    </div>
+    <div class="login-visual-side">
+      <div class="login-meta">Brgy. 164, Caloocan City</div>
+      <div>
+        <div class="login-quote">Your best<br/>trucking<br/>partner.</div>
+        <div style="margin-top: 24px; font-size: 13px; opacity: 0.8; max-width: 360px; line-height: 1.6;">
+          Serving all points in Luzon — from Metro Manila to Bicol, Mindoro, and beyond.
+        </div>
+      </div>
+      <div class="login-meta">Phase 1 · Admin Portal v1.0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= 2. DASHBOARD ============= -->
+<div class="screen" id="screen-dashboard">
+  <div class="app">
+    <!-- SIDEBAR (reused as template) -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">Joleo</div>
+        <div class="brand-tagline">Transport · Admin</div>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item active"><span class="nav-dot"></span>Dashboard</div>
+        <div class="nav-item"><span class="nav-dot"></span>Quote Builder</div>
+        <div class="nav-item"><span class="nav-dot"></span>Bookings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Truck Availability</div>
+        <div class="nav-section-title">Masterlists</div>
+        <div class="nav-item"><span class="nav-dot"></span>Trucks</div>
+        <div class="nav-item"><span class="nav-dot"></span>Drivers &amp; Helpers</div>
+        <div class="nav-item"><span class="nav-dot"></span>Clients</div>
+        <div class="nav-item"><span class="nav-dot"></span>Route Areas</div>
+        <div class="nav-section-title">Configuration</div>
+        <div class="nav-item"><span class="nav-dot"></span>Rate Settings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Users</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar">JR</div>
+        <div class="user-info">
+          <div class="user-name">Jess R.</div>
+          <div class="user-role">Owner · Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Good morning, Jess.</div>
+          <div class="page-subtitle">Tuesday, May 19 · Here's your operations snapshot.</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">Export report</button>
+          <button class="btn btn-primary">+ New Quote</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Active Bookings</div>
+          <div class="stat-value">14</div>
+          <div class="stat-meta positive">+3 vs last week</div>
+          <div class="stat-accent"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Trucks Dispatched Today</div>
+          <div class="stat-value">9 <span style="font-size: 16px; color: var(--muted);">/ 17</span></div>
+          <div class="stat-meta">53% utilization</div>
+          <div class="stat-accent"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Quotes</div>
+          <div class="stat-value">6</div>
+          <div class="stat-meta">3 awaiting client confirmation</div>
+          <div class="stat-accent"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Revenue (This Month)</div>
+          <div class="stat-value">₱428k</div>
+          <div class="stat-meta positive">+12% MoM</div>
+          <div class="stat-accent"></div>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <!-- Today's bookings -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Today's Schedule</div>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">9 dispatches scheduled</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">View all →</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Booking</th>
+                <th>Truck</th>
+                <th>Route</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono" style="font-size: 12px;">06:30</td>
+                <td>
+                  <div style="font-weight: 600;">JOL-2026-0241</div>
+                  <div style="font-size: 11px; color: var(--muted);">Robinsons Appliances</div>
+                </td>
+                <td><span class="truck-id-pill">V6</span></td>
+                <td>QC → Bulacan</td>
+                <td><span class="badge badge-success">Dispatched</span></td>
+              </tr>
+              <tr>
+                <td class="mono" style="font-size: 12px;">08:00</td>
+                <td>
+                  <div style="font-weight: 600;">JOL-2026-0242</div>
+                  <div style="font-size: 11px; color: var(--muted);">L &amp; T Design</div>
+                </td>
+                <td><span class="truck-id-pill">V13</span></td>
+                <td>Makati → Laguna</td>
+                <td><span class="badge badge-success">Dispatched</span></td>
+              </tr>
+              <tr>
+                <td class="mono" style="font-size: 12px;">09:15</td>
+                <td>
+                  <div style="font-weight: 600;">JOL-2026-0243</div>
+                  <div style="font-size: 11px; color: var(--muted);">Blooming Ventures</div>
+                </td>
+                <td><span class="truck-id-pill">V7</span></td>
+                <td>Caloocan → Pampanga</td>
+                <td><span class="badge badge-maroon">Confirmed</span></td>
+              </tr>
+              <tr>
+                <td class="mono" style="font-size: 12px;">10:00</td>
+                <td>
+                  <div style="font-weight: 600;">JOL-2026-0244</div>
+                  <div style="font-size: 11px; color: var(--muted);">United Renryson</div>
+                </td>
+                <td><span class="truck-id-pill">V10</span></td>
+                <td>Pasig → Cavite</td>
+                <td><span class="badge badge-maroon">Confirmed</span></td>
+              </tr>
+              <tr>
+                <td class="mono" style="font-size: 12px;">13:30</td>
+                <td>
+                  <div style="font-weight: 600;">JOL-2026-0245</div>
+                  <div style="font-size: 11px; color: var(--muted);">Robinsons Handyman</div>
+                </td>
+                <td><span class="truck-id-pill">V22</span></td>
+                <td>QC → Manila</td>
+                <td><span class="badge badge-warning">Pending</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Right sidebar widgets -->
+        <div class="stack" style="gap: 16px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Fleet Status</div></div>
+            <div class="card-body">
+              <div class="stack" style="gap: 10px;">
+                <div class="row between"><span style="font-size: 13px;">Active</span><span class="badge badge-success">13 trucks</span></div>
+                <div class="row between"><span style="font-size: 13px;">Under Repair</span><span class="badge badge-warning">2 trucks</span></div>
+                <div class="row between"><span style="font-size: 13px;">Inactive</span><span class="badge badge-neutral">2 trucks</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">Recent Quotes</div></div>
+            <div class="card-body" style="padding-top: 0;">
+              <div class="stack" style="gap: 0;">
+                <div style="padding: 12px 0; border-bottom: 1px solid var(--border);">
+                  <div style="font-size: 13px; font-weight: 600;">QT-2026-0388</div>
+                  <div style="font-size: 11px; color: var(--muted); margin: 2px 0;">L &amp; T Design · QC → Batangas</div>
+                  <div style="font-size: 13px; color: var(--maroon); font-weight: 600;">₱12,450</div>
+                </div>
+                <div style="padding: 12px 0; border-bottom: 1px solid var(--border);">
+                  <div style="font-size: 13px; font-weight: 600;">QT-2026-0387</div>
+                  <div style="font-size: 11px; color: var(--muted); margin: 2px 0;">Walk-in · Manila → Baguio</div>
+                  <div style="font-size: 13px; color: var(--maroon); font-weight: 600;">₱24,800</div>
+                </div>
+                <div style="padding: 12px 0;">
+                  <div style="font-size: 13px; font-weight: 600;">QT-2026-0386</div>
+                  <div style="font-size: 11px; color: var(--muted); margin: 2px 0;">Robinsons · Makati → Cavite</div>
+                  <div style="font-size: 13px; color: var(--maroon); font-weight: 600;">₱8,920</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============= 3. NEW QUOTE / PRICE COMPUTATION ============= -->
+<div class="screen" id="screen-quote">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">Joleo</div>
+        <div class="brand-tagline">Transport · Admin</div>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item"><span class="nav-dot"></span>Dashboard</div>
+        <div class="nav-item active"><span class="nav-dot"></span>Quote Builder</div>
+        <div class="nav-item"><span class="nav-dot"></span>Bookings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Truck Availability</div>
+        <div class="nav-section-title">Masterlists</div>
+        <div class="nav-item"><span class="nav-dot"></span>Trucks</div>
+        <div class="nav-item"><span class="nav-dot"></span>Drivers &amp; Helpers</div>
+        <div class="nav-item"><span class="nav-dot"></span>Clients</div>
+        <div class="nav-item"><span class="nav-dot"></span>Route Areas</div>
+        <div class="nav-section-title">Configuration</div>
+        <div class="nav-item"><span class="nav-dot"></span>Rate Settings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Users</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar">JR</div>
+        <div class="user-info">
+          <div class="user-name">Jess R.</div>
+          <div class="user-role">Owner · Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);">Quote Builder</div>
+          <div class="page-title">New Quotation</div>
+          <div class="page-subtitle">QT-2026-0389 · Draft</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-secondary">Save as draft</button>
+          <button class="btn btn-primary">Save &amp; convert to booking</button>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <!-- LEFT: Form sections -->
+        <div class="stack" style="gap: 24px;">
+          <!-- Section A: Booking info -->
+          <div class="card">
+            <div class="card-body">
+              <div class="section-title">A · Booking Information</div>
+              <div class="form-grid">
+                <div class="field-group">
+                  <label class="field-label">Date of Quotation</label>
+                  <input class="input" type="text" value="May 19, 2026" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Quotation No.</label>
+                  <input class="input" type="text" value="QT-2026-0389" readonly />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Client</label>
+                  <select class="select">
+                    <option>Robinsons Appliances Corp</option>
+                    <option>L &amp; T Design Powerhaus</option>
+                    <option>Blooming Ventures Inc</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Contact Person</label>
+                  <input class="input" type="text" value="Ms. Lindsey Usquisa" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Pick-up Point</label>
+                  <input class="input" type="text" placeholder="e.g. Robinsons Pioneer, Mandaluyong" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Drop-off Point</label>
+                  <input class="input" type="text" placeholder="e.g. Robinsons Marquee, Pampanga" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Route / Area</label>
+                  <select class="select">
+                    <option>Central Luzon</option>
+                    <option>Metro Manila</option>
+                    <option>CALABARZON</option>
+                    <option>North Luzon</option>
+                    <option>South Luzon</option>
+                    <option>Bicol Region</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Estimated Distance (km)</label>
+                  <input class="input" type="number" value="100" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Service Type</label>
+                  <select class="select">
+                    <option>Lipat-Bahay / House Moving</option>
+                    <option>Commercial Delivery</option>
+                    <option>Catering Delivery</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Number of Drop-offs</label>
+                  <input class="input" type="number" value="2" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section B: Truck & Crew -->
+          <div class="card">
+            <div class="card-body">
+              <div class="section-title">B · Truck &amp; Crew Selection</div>
+              <div class="form-grid">
+                <div class="field-group">
+                  <label class="field-label">Truck</label>
+                  <select class="select">
+                    <option>V6 — REP 141 · 14 ftr 6-wheels</option>
+                    <option>V7 — RFZ 534 · 16 ftr 6-wheels</option>
+                    <option>V9 — XKD 180 · 12 ftr 6-wheels</option>
+                  </select>
+                  <div class="field-hint">Min base rate ₱4,500 · 5 km/L</div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Driver</label>
+                  <select class="select">
+                    <option>Capalaran, Ronel — ₱800/day</option>
+                    <option>Caragay, Rogelio Jr.</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Helpers</label>
+                  <input class="input" type="number" value="2" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Assigned Helper</label>
+                  <select class="select">
+                    <option>Cula, Jordan — ₱600/day</option>
+                    <option>Bontigao, Francis</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section C: Service flags -->
+          <div class="card">
+            <div class="card-body">
+              <div class="section-title">C · Job Details &amp; Service Flags</div>
+              <div class="form-grid">
+                <div class="field-group">
+                  <label class="field-label">Included Hours</label>
+                  <input class="input" type="number" value="8" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Estimated Job Hours</label>
+                  <input class="input" type="number" value="8" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Toll Fee (₱)</label>
+                  <input class="input" type="number" value="0" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Parking Fee (₱)</label>
+                  <input class="input" type="number" value="0" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Condo Service?</label>
+                  <select class="select"><option>Yes</option><option>No</option></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Out-of-Town Trip?</label>
+                  <select class="select"><option>Yes</option><option>No</option></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Night Delivery?</label>
+                  <select class="select"><option>No</option><option>Yes</option></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">VAT Option</label>
+                  <select class="select"><option>VAT-Inclusive</option><option>VAT-Exclusive</option><option>Non-VAT</option></select>
+                </div>
+                <div class="field-group span-2">
+                  <label class="field-label">Discount Amount (₱)</label>
+                  <input class="input" type="number" value="0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Live Price Computation -->
+        <div class="stack" style="gap: 16px; position: sticky; top: 60px;">
+          <div class="alert alert-success">
+            <strong>OK</strong> · Margin 25.0% is on target · Price meets floor.
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Price Computation</div>
+              <span class="badge badge-maroon">Live</span>
+            </div>
+            <div class="card-body">
+              <table class="breakdown-table">
+                <tr><td>1. Truck Base Rate</td><td>₱4,500.00</td></tr>
+                <tr><td>2. Distance Charge (100km × ₱12)</td><td>₱1,200.00</td></tr>
+                <tr><td>3. Fuel Cost (round-trip)</td><td>₱2,940.00</td></tr>
+                <tr><td>4. Driver Cost</td><td>₱800.00</td></tr>
+                <tr><td>5. Helper Cost (×2)</td><td>₱1,200.00</td></tr>
+                <tr><td>6. Extra Drop-off Charge</td><td>₱300.00</td></tr>
+                <tr><td>7. Condo Handling Fee</td><td>₱500.00</td></tr>
+                <tr><td>8. Out-of-Town Surcharge</td><td>₱500.00</td></tr>
+                <tr><td>9. Maintenance Allowance</td><td>₱360.00</td></tr>
+                <tr class="subtotal"><td>Direct Cost Subtotal</td><td>₱12,300.00</td></tr>
+                <tr><td>10. Overhead Allocation (10%)</td><td>₱1,230.00</td></tr>
+                <tr><td>11. Contingency Buffer (3%)</td><td>₱369.00</td></tr>
+                <tr class="subtotal"><td>Total Cost Before Profit</td><td>₱13,899.00</td></tr>
+              </table>
+
+              <div class="tier-grid">
+                <div class="tier-card">
+                  <div class="tier-label">Floor</div>
+                  <div class="tier-value">₱16,352</div>
+                </div>
+                <div class="tier-card selected">
+                  <div class="tier-label">Target</div>
+                  <div class="tier-value">₱18,532</div>
+                </div>
+                <div class="tier-card">
+                  <div class="tier-label">Ceiling</div>
+                  <div class="tier-value">₱23,165</div>
+                </div>
+              </div>
+
+              <table class="breakdown-table">
+                <tr><td>VAT (12% inclusive, extracted)</td><td>₱1,985.57</td></tr>
+                <tr class="total"><td>Final Quoted Price</td><td>₱18,532.00</td></tr>
+              </table>
+
+              <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button class="btn btn-secondary" style="flex: 1;">Override price</button>
+                <button class="btn btn-primary" style="flex: 1;">Generate PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============= 4. BOOKINGS LIST ============= -->
+<div class="screen" id="screen-bookings">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">Joleo</div>
+        <div class="brand-tagline">Transport · Admin</div>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item"><span class="nav-dot"></span>Dashboard</div>
+        <div class="nav-item"><span class="nav-dot"></span>Quote Builder</div>
+        <div class="nav-item active"><span class="nav-dot"></span>Bookings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Truck Availability</div>
+        <div class="nav-section-title">Masterlists</div>
+        <div class="nav-item"><span class="nav-dot"></span>Trucks</div>
+        <div class="nav-item"><span class="nav-dot"></span>Drivers &amp; Helpers</div>
+        <div class="nav-item"><span class="nav-dot"></span>Clients</div>
+        <div class="nav-item"><span class="nav-dot"></span>Route Areas</div>
+        <div class="nav-section-title">Configuration</div>
+        <div class="nav-item"><span class="nav-dot"></span>Rate Settings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Users</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar">JR</div>
+        <div class="user-info">
+          <div class="user-name">Jess R.</div>
+          <div class="user-role">Owner · Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Bookings</div>
+          <div class="page-subtitle">All bookings · 247 total · 14 active</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">Export CSV</button>
+          <button class="btn btn-primary">+ New Booking</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="search-input">
+          <span class="search-icon">⌕</span>
+          <input class="input" type="text" placeholder="Search by ID, client, plate no..." />
+        </div>
+        <select class="select" style="min-width: 140px;">
+          <option>All statuses</option>
+          <option>Draft</option>
+          <option>Quoted</option>
+          <option>Confirmed</option>
+          <option>Dispatched</option>
+          <option>Completed</option>
+          <option>Cancelled</option>
+        </select>
+        <select class="select" style="min-width: 140px;">
+          <option>All trucks</option>
+          <option>V5 — XHR 788</option>
+          <option>V6 — REP 141</option>
+        </select>
+        <input class="input" type="date" value="2026-05-19" />
+        <button class="btn btn-ghost btn-sm">Reset filters</button>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Booking ID</th>
+              <th>Date</th>
+              <th>Client</th>
+              <th>Route</th>
+              <th>Truck</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0245</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0388</div></td>
+              <td>May 19, 2026</td>
+              <td>Robinsons Handyman</td>
+              <td>QC → Manila</td>
+              <td><span class="truck-id-pill">V22</span></td>
+              <td class="mono">₱5,840</td>
+              <td><span class="badge badge-warning">Pending</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0244</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0387</div></td>
+              <td>May 19, 2026</td>
+              <td>United Renryson</td>
+              <td>Pasig → Cavite</td>
+              <td><span class="truck-id-pill">V10</span></td>
+              <td class="mono">₱9,420</td>
+              <td><span class="badge badge-maroon">Confirmed</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0243</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0386</div></td>
+              <td>May 19, 2026</td>
+              <td>Blooming Ventures</td>
+              <td>Caloocan → Pampanga</td>
+              <td><span class="truck-id-pill">V7</span></td>
+              <td class="mono">₱14,200</td>
+              <td><span class="badge badge-maroon">Confirmed</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0242</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0385</div></td>
+              <td>May 19, 2026</td>
+              <td>L &amp; T Design</td>
+              <td>Makati → Laguna</td>
+              <td><span class="truck-id-pill">V13</span></td>
+              <td class="mono">₱11,200</td>
+              <td><span class="badge badge-success">Dispatched</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0241</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0384</div></td>
+              <td>May 19, 2026</td>
+              <td>Robinsons Appliances</td>
+              <td>QC → Bulacan</td>
+              <td><span class="truck-id-pill">V6</span></td>
+              <td class="mono">₱8,400</td>
+              <td><span class="badge badge-success">Dispatched</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0240</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0383</div></td>
+              <td>May 18, 2026</td>
+              <td>Robinsons Appliances</td>
+              <td>Manila → Tarlac</td>
+              <td><span class="truck-id-pill">V12</span></td>
+              <td class="mono">₱12,800</td>
+              <td><span class="badge badge-neutral">Completed</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight: 600;">JOL-2026-0239</div><div style="font-size: 11px; color: var(--muted);">QT-2026-0382</div></td>
+              <td>May 18, 2026</td>
+              <td>Walk-in</td>
+              <td>QC → Baguio</td>
+              <td><span class="truck-id-pill">V10</span></td>
+              <td class="mono">₱24,800</td>
+              <td><span class="badge badge-neutral">Completed</span></td>
+              <td><button class="btn btn-ghost btn-sm">View →</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding: 14px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted);">
+          <div>Showing 1–7 of 247</div>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-secondary btn-sm">← Previous</button>
+            <button class="btn btn-secondary btn-sm">Next →</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============= 5. TRUCK AVAILABILITY CALENDAR ============= -->
+<div class="screen" id="screen-calendar">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">Joleo</div>
+        <div class="brand-tagline">Transport · Admin</div>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item"><span class="nav-dot"></span>Dashboard</div>
+        <div class="nav-item"><span class="nav-dot"></span>Quote Builder</div>
+        <div class="nav-item"><span class="nav-dot"></span>Bookings</div>
+        <div class="nav-item active"><span class="nav-dot"></span>Truck Availability</div>
+        <div class="nav-section-title">Masterlists</div>
+        <div class="nav-item"><span class="nav-dot"></span>Trucks</div>
+        <div class="nav-item"><span class="nav-dot"></span>Drivers &amp; Helpers</div>
+        <div class="nav-item"><span class="nav-dot"></span>Clients</div>
+        <div class="nav-item"><span class="nav-dot"></span>Route Areas</div>
+        <div class="nav-section-title">Configuration</div>
+        <div class="nav-item"><span class="nav-dot"></span>Rate Settings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Users</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar">JR</div>
+        <div class="user-info">
+          <div class="user-name">Jess R.</div>
+          <div class="user-role">Owner · Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Truck Availability</div>
+          <div class="page-subtitle">Week of May 18 – May 24, 2026</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">← Prev week</button>
+          <button class="btn btn-secondary">This week</button>
+          <button class="btn btn-secondary">Next week →</button>
+          <button class="btn btn-primary">+ Assign Truck</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; font-size: 12px; align-items: center;">
+        <div class="row" style="gap: 6px;"><span style="width: 12px; height: 12px; background: var(--maroon); border-radius: 3px;"></span>Confirmed</div>
+        <div class="row" style="gap: 6px;"><span style="width: 12px; height: 12px; background: var(--ink); border-radius: 3px;"></span>Dispatched</div>
+        <div class="row" style="gap: 6px;"><span style="width: 12px; height: 12px; background: white; border: 1px dashed var(--border-strong); border-radius: 3px;"></span>Draft / Pending</div>
+        <div class="row" style="gap: 6px;"><span style="width: 12px; height: 12px; background: repeating-linear-gradient(45deg, #F0EFEC, #F0EFEC 3px, white 3px, white 6px); border-radius: 3px;"></span>Unavailable</div>
+      </div>
+
+      <div class="calendar-grid">
+        <div class="cal-header"></div>
+        <div class="cal-header day-label"><span>Mon</span><span class="day-num">18</span></div>
+        <div class="cal-header day-label"><span>Tue</span><span class="day-num">19</span></div>
+        <div class="cal-header day-label"><span>Wed</span><span class="day-num">20</span></div>
+        <div class="cal-header day-label"><span>Thu</span><span class="day-num">21</span></div>
+        <div class="cal-header day-label"><span>Fri</span><span class="day-num">22</span></div>
+        <div class="cal-header day-label"><span>Sat</span><span class="day-num">23</span></div>
+        <div class="cal-header day-label"><span>Sun</span><span class="day-num">24</span></div>
+
+        <!-- V5 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V5 · XHR 788</div>
+          <div class="cal-truck-type">10ftr · 4-wheel</div>
+        </div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Robinsons<br/>Mla→Cav</div></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Robinsons<br/>Mla→Cav</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking draft">Hold</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+
+        <!-- V6 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V6 · REP 141</div>
+          <div class="cal-truck-type">14ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell"><div class="cal-booking dispatched">L&amp;T<br/>QC→Pang.</div></div>
+        <div class="cal-cell"><div class="cal-booking dispatched">Robinsons<br/>QC→Bul.</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">United R.<br/>Pasig→Cav</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+
+        <!-- V7 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V7 · RFZ 534</div>
+          <div class="cal-truck-type">16ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Blooming<br/>Cal→Pamp.</div></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Blooming<br/>Cal→Pamp.</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking draft">Tentative</div></div>
+        <div class="cal-cell"></div>
+
+        <!-- V9 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V9 · XKD 180</div>
+          <div class="cal-truck-type">12ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Walk-in<br/>Mla→Lag.</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+
+        <!-- V10 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V10 · RJB 646</div>
+          <div class="cal-truck-type">20ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">United R.<br/>Pasig→Cav</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Bulk Haul<br/>QC→Tarl.</div></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Bulk Haul<br/>QC→Tarl.</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+
+        <!-- V12 (Under Repair) -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V12 · TQO 775</div>
+          <div class="cal-truck-type">14ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell unavailable"></div>
+        <div class="cal-cell unavailable"></div>
+        <div class="cal-cell unavailable"></div>
+        <div class="cal-cell unavailable"></div>
+        <div class="cal-cell unavailable"></div>
+        <div class="cal-cell unavailable"></div>
+        <div class="cal-cell unavailable"></div>
+
+        <!-- V13 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V13 · UWI 887</div>
+          <div class="cal-truck-type">14ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking dispatched">L&amp;T<br/>Mak→Lag.</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking confirmed">Robinsons<br/>QC→Pamp.</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+
+        <!-- V22 -->
+        <div class="cal-truck-cell">
+          <div class="cal-truck-id">V22 · RHV 542</div>
+          <div class="cal-truck-type">14ftr · 6-wheel</div>
+        </div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"><div class="cal-booking draft">Robinsons<br/>Pending</div></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+        <div class="cal-cell"></div>
+      </div>
+
+      <div class="footer-note">
+        <strong>Tip:</strong> Click any cell to assign a truck to a booking. Trucks marked "Under Repair" or "Inactive" appear with diagonal stripes and cannot be booked.
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============= 6. TRUCKS MASTERLIST ============= -->
+<div class="screen" id="screen-trucks">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">Joleo</div>
+        <div class="brand-tagline">Transport · Admin</div>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item"><span class="nav-dot"></span>Dashboard</div>
+        <div class="nav-item"><span class="nav-dot"></span>Quote Builder</div>
+        <div class="nav-item"><span class="nav-dot"></span>Bookings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Truck Availability</div>
+        <div class="nav-section-title">Masterlists</div>
+        <div class="nav-item active"><span class="nav-dot"></span>Trucks</div>
+        <div class="nav-item"><span class="nav-dot"></span>Drivers &amp; Helpers</div>
+        <div class="nav-item"><span class="nav-dot"></span>Clients</div>
+        <div class="nav-item"><span class="nav-dot"></span>Route Areas</div>
+        <div class="nav-section-title">Configuration</div>
+        <div class="nav-item"><span class="nav-dot"></span>Rate Settings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Users</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar">JR</div>
+        <div class="user-info">
+          <div class="user-name">Jess R.</div>
+          <div class="user-role">Owner · Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Trucks</div>
+          <div class="page-subtitle">Fleet masterlist · 17 trucks</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">Import CSV</button>
+          <button class="btn btn-primary">+ Add Truck</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="search-input">
+          <span class="search-icon">⌕</span>
+          <input class="input" type="text" placeholder="Search by ID, plate, type..." />
+        </div>
+        <select class="select" style="min-width: 140px;">
+          <option>All statuses</option>
+          <option>Active</option>
+          <option>Under Repair</option>
+          <option>Inactive</option>
+        </select>
+        <select class="select" style="min-width: 140px;">
+          <option>All sizes</option>
+          <option>10 ft</option>
+          <option>12 ft</option>
+          <option>14 ft</option>
+          <option>16 ft</option>
+          <option>20 ft</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Truck ID</th>
+              <th>Plate No.</th>
+              <th>Type</th>
+              <th>Fuel km/L</th>
+              <th>Min Base Rate</th>
+              <th>Daily Rate</th>
+              <th>Excess Hr Rate</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="truck-id-pill">V5</span></td><td class="mono">XHR 788</td><td>10 ftr · 4-wheel</td><td>7.5</td><td class="mono">₱2,500</td><td class="mono">₱2,500</td><td class="mono">₱150</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V6</span></td><td class="mono">REP 141</td><td>14 ftr · 6-wheel</td><td>5.0</td><td class="mono">₱4,500</td><td class="mono">₱4,500</td><td class="mono">₱200</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V7</span></td><td class="mono">RFZ 534</td><td>16 ftr · 6-wheel</td><td>4.5</td><td class="mono">₱6,000</td><td class="mono">₱6,000</td><td class="mono">₱250</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V9</span></td><td class="mono">XKD 180</td><td>12 ftr · 6-wheel</td><td>6.0</td><td class="mono">₱3,500</td><td class="mono">₱3,500</td><td class="mono">₱175</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V10</span></td><td class="mono">RJB 646</td><td>20 ftr · 6-wheel</td><td>3.5</td><td class="mono">₱8,000</td><td class="mono">₱8,000</td><td class="mono">₱300</td><td><span class="badge badge-neutral">Inactive</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V12</span></td><td class="mono">TQO 775</td><td>14 ftr · 6-wheel</td><td>5.0</td><td class="mono">₱4,500</td><td class="mono">₱4,500</td><td class="mono">₱200</td><td><span class="badge badge-warning">Under Repair</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V13</span></td><td class="mono">UWI 887</td><td>14 ftr · 6-wheel</td><td>5.0</td><td class="mono">₱4,500</td><td class="mono">₱4,500</td><td class="mono">₱200</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V15</span></td><td class="mono">RBH 578</td><td>10 ftr · 6-wheel</td><td>6.5</td><td class="mono">₱3,000</td><td class="mono">₱3,000</td><td class="mono">₱150</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">V22</span></td><td class="mono">RHV 542</td><td>14 ftr · 6-wheel</td><td>5.0</td><td class="mono">₱4,500</td><td class="mono">₱4,500</td><td class="mono">₱200</td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">ELF1</span></td><td class="mono">XAM 959</td><td>14 ftr · 6-wheel</td><td>5.0</td><td class="mono">₱4,500</td><td class="mono">₱4,500</td><td class="mono">₱200</td><td><span class="badge badge-warning">Under Repair</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+            <tr><td><span class="truck-id-pill">ELF2</span></td><td class="mono">XSH 957</td><td>16 ftr · Dropside</td><td>4.5</td><td class="mono">₱5,000</td><td class="mono">₱5,000</td><td class="mono">₱250</td><td><span class="badge badge-neutral">Inactive</span></td><td><button class="btn btn-ghost btn-sm">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============= 7. RATE SETTINGS ============= -->
+<div class="screen" id="screen-rates">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">Joleo</div>
+        <div class="brand-tagline">Transport · Admin</div>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Operations</div>
+        <div class="nav-item"><span class="nav-dot"></span>Dashboard</div>
+        <div class="nav-item"><span class="nav-dot"></span>Quote Builder</div>
+        <div class="nav-item"><span class="nav-dot"></span>Bookings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Truck Availability</div>
+        <div class="nav-section-title">Masterlists</div>
+        <div class="nav-item"><span class="nav-dot"></span>Trucks</div>
+        <div class="nav-item"><span class="nav-dot"></span>Drivers &amp; Helpers</div>
+        <div class="nav-item"><span class="nav-dot"></span>Clients</div>
+        <div class="nav-item"><span class="nav-dot"></span>Route Areas</div>
+        <div class="nav-section-title">Configuration</div>
+        <div class="nav-item active"><span class="nav-dot"></span>Rate Settings</div>
+        <div class="nav-item"><span class="nav-dot"></span>Users</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="avatar">JR</div>
+        <div class="user-info">
+          <div class="user-name">Jess R.</div>
+          <div class="user-role">Owner · Admin</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Rate Settings</div>
+          <div class="page-subtitle">Global pricing parameters · All future quotes use these values</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary">View change log</button>
+          <button class="btn btn-primary">Save changes</button>
+        </div>
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>Heads up</strong> · Changes affect all new quotes immediately. Existing quotes keep their snapshotted rates.
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="settings-section">
+            <div class="section-title">Fuel &amp; Operations</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Diesel Price per Liter</div>
+                <div class="setting-note">Update as pump price changes · Suggested ₱55 – ₱90</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="70" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">Last updated 3 days ago</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Fuel Surcharge %</div>
+                <div class="setting-note">Added on top of raw fuel cost · Suggested 0 – 15%</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="5" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">%</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">Manpower Rates</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Driver Daily Rate</div>
+                <div class="setting-note">8-hour standard shift</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="800" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ / day</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Driver Overtime Rate / hr</div>
+                <div class="setting-note">Per hour beyond 8 hours</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="150" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ / hr</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Helper Daily Rate</div>
+                <div class="setting-note">8-hour standard shift</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="600" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ / day</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Helper Overtime Rate / hr</div>
+                <div class="setting-note">Per hour beyond 8 hours</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="100" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ / hr</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">Surcharges &amp; Fees</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Out-of-Town Surcharge</div>
+                <div class="setting-note">Beyond Metro Manila boundaries</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="500" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ flat</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Long-Distance Surcharge</div>
+                <div class="setting-note">Trips exceeding 200 km one way</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="1500" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ flat</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Distance Rate per km</div>
+                <div class="setting-note">Applied to estimated total distance</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="12" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ / km</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Condo Handling Fee</div>
+                <div class="setting-note">Condo move-in/out surcharge</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="500" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ flat</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Additional Drop-off Charge</div>
+                <div class="setting-note">Per extra drop-off beyond the first</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="300" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">₱ each</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">Profit Margins</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Floor Profit Margin %</div>
+                <div class="setting-note">Minimum acceptable margin</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="15" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">%</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Target Profit Margin %</div>
+                <div class="setting-note">Ideal per-booking margin</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="25" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">%</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Ceiling Profit Margin %</div>
+                <div class="setting-note">Maximum ceiling for competitive pricing</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="40" style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">%</div>
+            </div>
+          </div>
+
+          <div class="settings-section" style="margin-bottom: 0;">
+            <div class="section-title">Tax</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">VAT Rate</div>
+                <div class="setting-note">Standard Philippine VAT · Locked at 12%</div>
+              </div>
+              <div class="setting-input"><input class="input" type="number" value="12" readonly style="text-align: right;" /></div>
+              <div style="font-size: 12px; color: var(--muted);">%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  // Mockup screen switcher
+  const buttons = document.querySelectorAll('.mockup-nav button');
+  const screens = document.querySelectorAll('.screen');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.screen;
+      buttons.forEach(b => b.classList.remove('active'));
+      screens.forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('screen-' + target).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+</script>
+
+</body>
+</html>

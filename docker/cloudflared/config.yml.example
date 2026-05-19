@@ -1,0 +1,7 @@
+tunnel: joleo-nucbox
+credentials-file: /etc/cloudflared/creds.json
+
+ingress:
+  - hostname: your-subdomain.cfargotunnel.com
+    service: http://caddy:80
+  - service: http_status:404
