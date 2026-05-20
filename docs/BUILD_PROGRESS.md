@@ -91,6 +91,11 @@ Last updated: 2026-05-20 (post-M10 polish complete)
 - **NEXTAUTH_URL** set to `https://joleo.sas-agent.co.uk` in `.env.local` so post-login callbacks resolve correctly.
 - **pnpm-workspace.yaml** — `allowBuilds:` block with booleans (`@prisma/client`, `@prisma/engines`, `esbuild`, `prisma`, `sharp`, `unrs-resolver`), required by pnpm 11 to run postinstall scripts.
 - `pnpm exec tsc --noEmit` ✅ clean | `pnpm test --run` ✅ 41/41 | Code review via `/code-review` found no actionable issues (only finding was below 80 confidence threshold).
+- **PDF redesigned as client-facing document** — removed internal cost breakdown (line items, overhead, tier grid). Now 7 sections: Client & Booking Details (2-col grid), Truck & Crew (2-col grid), Service Inclusions, Exclusions, Pricing Summary (service fee + toll + VAT option + VAT amount + total), Terms & Conditions. `src/components/pdf/QuotationPDF.tsx`.
+- **₱ glyph fix** — Helvetica/Roboto/Noto lacked U+20B1; copied DejaVu Sans Regular + Bold to `public/fonts/`, registered via `path.resolve(process.cwd(), ...)`. Amount strings use Regular weight (Bold lacks ₱).
+- **PDF 1-page layout** — switched Client & Booking Details to 4 two-column grid rows (was 8 stacked rows); same for Truck & Crew; tightened all spacing.
+- **React import fix** — added `import React from "react"` to `QuotationPDF.tsx`; required by @react-pdf/renderer v4 custom reconciler.
+- **PDF route error logging** — try-catch wraps `renderToBuffer`; returns actual error text on 500 to aid ISE debugging. `src/app/api/quotes/[id]/pdf/route.tsx`.
 
 ## 🧪 Experimental (treat as fragile)
 _(none)_
@@ -98,6 +103,7 @@ _(none)_
 ## 🚫 Known Issues (Deprioritized)
 - ~~favicon.ico missing → 404 in browser console~~ — resolved 2026-05-20 (`src/app/icon.png` + `src/app/apple-icon.png`)
 - AUTH_TRUST_HOST=true in .env.local — dev server port no longer matters
+- **PDF ISE** — `/api/quotes/[id]/pdf` returns 500 in Next.js context; tsx render test passes (27 KB). Try-catch in place to surface actual error on next download attempt.
 
 ## Milestone Status
 | # | Milestone | Status |

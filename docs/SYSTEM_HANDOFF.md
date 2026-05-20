@@ -1,7 +1,7 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-20 — Post-M10 polish: dashboard mockup parity, font CDN swap, public URL, favicons
+2026-05-20 — PDF redesign: client-facing quotation with 7 sections, DejaVu Sans for ₱ glyph, 1-page compact layout; ISE debug in progress
 
 ## Current System State
 Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 milestones (M1–M10) complete and pushed to GitHub (`main`). Full feature set: auth, masterlists CRUD, rate settings, pricing engine, quote builder + PDF, bookings with FSM, truck availability calendar, live dashboard. Login with `jess` / `admin123` (or credentials in `.env.local`).
@@ -9,6 +9,8 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 miles
 **Public URL:** `https://joleo.sas-agent.co.uk` (via the existing Nucbox cloudflared tunnel, ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`). Dev server bound to `*:3000`, accessible via LAN (`192.168.254.166`), Tailscale (`100.87.42.111`), and the public hostname. `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` set in `.env.local` so post-login redirects resolve correctly.
 
 **Phase 1 is complete. Phase 2 (customer-facing portal) is parked.**
+
+PDF quotation route (`/api/quotes/[id]/pdf`) redesigned as a client-facing document this session. Try-catch added to route to surface actual error message; ISE root cause not yet confirmed resolved in Next.js context.
 
 ---
 
@@ -133,6 +135,19 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 miles
 - The CNAME for the sas-agent.co.uk zone was added via the Cloudflare dashboard, because cloudflared's `~/.cloudflared/cert.pem` on the Nucbox is only authorized for the aplaya-dev.cc zone
 - Do NOT touch the other ingress entries (`aplaya-dev.cc`, `n8n.sas-agent.co.uk`, etc.) — they serve other projects on the same Nucbox
 
+### Decision: DejaVu Sans for ₱ glyph in PDFs (2026-05-20)
+- Helvetica (built-in PDF font), Roboto, and Noto Sans Latin subsets all lack U+20B1 (₱ Philippine Peso Sign) — renders as overlapping characters
+- DejaVu Sans Regular (confirmed via byte search) includes U+20B1; DejaVu Sans Bold does NOT
+- TTFs copied from Nucbox system fonts to `public/fonts/DejaVuSans.ttf` and `public/fonts/DejaVuSans-Bold.ttf`
+- Registered via `path.resolve(process.cwd(), "public/fonts/...")` in `Font.register()` — do NOT use URLs or absolute system paths
+- All monetary amount strings in `QuotationPDF.tsx` use Regular weight; labels/headings use Bold (fontWeight 700)
+- Do NOT swap to another font without first confirming U+20B1 is present in the TTF binary
+
+### Decision: Explicit `import React` in QuotationPDF.tsx (2026-05-20)
+- @react-pdf/renderer v4 uses a custom fiber reconciler that calls component functions in a context where Next.js's automatic JSX transform does not inject React
+- Symptom: `ReferenceError: React is not defined` at runtime in both Next.js and tsx test contexts
+- Fix: `import React from "react"` must remain at the top of `QuotationPDF.tsx` — do NOT remove it even though Next.js 15 uses the automatic JSX transform everywhere else
+
 ### Decision: Favicons from truck logo (2026-05-20)
 - Source: `docs/356378784_599377255674979_8027307442482878578_n.jpg` (truck silhouette + "JOLEO TRANSPORT" wordmark)
 - Generated via `sharp().trim()` (removes white border) then `.resize()` to 32×32 and 180×180
@@ -157,13 +172,16 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 miles
 ---
 
 ## Session Continuity (2026-05-20)
-- Last worked on: post-M10 polish — dashboard mockup parity (Fleet Status + Recent Quotes + "+ New Quote" header + 2-col split), font CDN swap, TruckCalendar key fix, public URL via Cloudflare tunnel, favicons
-- Next logical step: nothing queued. Phase 2 (customer portal) still parked.
-- Do NOT touch this session:
+- Last worked on: PDF redesign — client-facing 7-section layout, DejaVu Sans ₱ fix, 1-page compact grid, explicit React import, try-catch error logging in PDF route
+- **Immediate next step:** user to attempt PDF download and share the error text returned by try-catch; fix the ISE root cause once the actual error is known
+- **Blocked:** PDF ISE not confirmed resolved in Next.js context — tsx render test passes (27 KB), but browser still returns 500; try-catch is in place ready to surface the message
+- Do NOT touch:
   - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox (serve other projects)
   - Font system (must stay on Google Fonts CDN per user directive)
   - Dashboard layout (mockup-exact intentional)
   - `pnpm-workspace.yaml` `allowBuilds:` booleans (needed for postinstall scripts)
+  - `import React from "react"` in `QuotationPDF.tsx` (required by @react-pdf/renderer reconciler)
+  - DejaVu font files in `public/fonts/` (only confirmed fonts with U+20B1)
 
 ---
 
