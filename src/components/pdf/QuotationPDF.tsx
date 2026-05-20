@@ -3,7 +3,7 @@ import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/rendere
 import type { PricingResult } from "@/features/pricing/types";
 
 // DejaVu Sans Regular includes U+20B1 (₱). Bold does not, so amount
-// strings always use Regular weight; section titles/labels use Bold.
+// strings always use Regular weight; labels/headings use Bold.
 Font.register({
   family: "DejaVu",
   fonts: [
@@ -14,15 +14,14 @@ Font.register({
 
 const BRAND = "#6b1924";
 const MUTED = "#888888";
-const BORDER = "#e0e0e0";
 
 const s = StyleSheet.create({
   page: {
     fontFamily: "DejaVu",
-    fontSize: 9.5,
-    paddingTop: 36,
-    paddingBottom: 56,
-    paddingHorizontal: 44,
+    fontSize: 9,
+    paddingTop: 32,
+    paddingBottom: 52,
+    paddingHorizontal: 40,
     color: "#1a1a1a",
   },
 
@@ -32,83 +31,78 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
     borderBottom: "2pt solid #6b1924",
-    paddingBottom: 10,
-    marginBottom: 18,
+    paddingBottom: 8,
+    marginBottom: 14,
   },
-  brandMark: { fontSize: 22, fontWeight: 700, color: BRAND },
-  brandSub: { fontSize: 7.5, color: MUTED, letterSpacing: 2, marginTop: 2 },
+  brandMark: { fontSize: 20, fontWeight: 700, color: BRAND },
+  brandSub: { fontSize: 7, color: MUTED, letterSpacing: 2, marginTop: 2 },
   headerRight: { alignItems: "flex-end" },
-  quotationLabel: { fontSize: 13, fontWeight: 700, color: BRAND },
-  quoteNo: { fontSize: 8.5, color: MUTED, marginTop: 2 },
+  quotationLabel: { fontSize: 12, fontWeight: 700, color: BRAND },
+  quoteNo: { fontSize: 8, color: MUTED, marginTop: 2 },
 
   // ── Section chrome ────────────────────────────────────────────────────────
-  section: { marginBottom: 14 },
+  section: { marginBottom: 10 },
   sectionTitle: {
-    fontSize: 7,
+    fontSize: 6.5,
     fontWeight: 700,
     letterSpacing: 1.5,
     color: BRAND,
     textTransform: "uppercase",
     borderBottom: "0.5pt solid #6b1924",
     paddingBottom: 3,
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
-  // ── Detail rows (label | value) ───────────────────────────────────────────
-  detailRow: {
+  // ── 2-column detail grid ──────────────────────────────────────────────────
+  gridRow: {
     flexDirection: "row",
-    paddingVertical: 3.5,
     borderBottom: "0.5pt solid #f0f0f0",
+    paddingVertical: 3,
   },
-  detailLabel: {
-    width: "38%",
-    fontSize: 8,
-    color: MUTED,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  detailValue: { flex: 1, fontSize: 9.5 },
+  gridCell: { flex: 1, paddingRight: 8 },
+  gridCellRight: { flex: 1, paddingLeft: 8, borderLeft: "0.5pt solid #f0f0f0" },
+  detailLabel: { fontSize: 7, color: MUTED, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 1 },
+  detailValue: { fontSize: 9 },
 
-  // ── Bullet list ───────────────────────────────────────────────────────────
+  // ── Bullet lists ──────────────────────────────────────────────────────────
   bulletGrid: { flexDirection: "row", flexWrap: "wrap" },
-  bulletItem: { width: "50%", fontSize: 9, paddingVertical: 2.5 },
-  bulletItemFull: { width: "100%", fontSize: 9, paddingVertical: 2.5 },
+  bulletItem: { width: "50%", fontSize: 8.5, paddingVertical: 2 },
 
   // ── Pricing summary ───────────────────────────────────────────────────────
-  priceRow: { flexDirection: "row", paddingVertical: 4 },
-  priceRowMuted: { flexDirection: "row", paddingVertical: 3 },
-  priceLabel: { flex: 1, fontSize: 9.5 },
-  priceLabelMuted: { flex: 1, fontSize: 9, color: MUTED },
-  priceValue: { fontSize: 9.5, textAlign: "right", minWidth: 95 },
-  priceValueMuted: { fontSize: 9, color: MUTED, textAlign: "right", minWidth: 95 },
-  priceDivider: { borderTop: "2pt solid #6b1924", marginTop: 6, marginBottom: 4 },
-  totalRow: { flexDirection: "row", paddingTop: 5 },
-  totalLabel: { flex: 1, fontSize: 11, fontWeight: 700 },
-  totalValue: { fontSize: 15, color: BRAND, textAlign: "right", minWidth: 95 },
+  priceRow: { flexDirection: "row", paddingVertical: 3.5 },
+  priceRowMuted: { flexDirection: "row", paddingVertical: 2.5 },
+  priceLabel: { flex: 1, fontSize: 9 },
+  priceLabelMuted: { flex: 1, fontSize: 8.5, color: MUTED },
+  priceValue: { fontSize: 9, textAlign: "right", minWidth: 90 },
+  priceValueMuted: { fontSize: 8.5, color: MUTED, textAlign: "right", minWidth: 90 },
+  priceDivider: { borderTop: "1.5pt solid #6b1924", marginTop: 5, marginBottom: 3 },
+  totalRow: { flexDirection: "row", paddingTop: 4 },
+  totalLabel: { flex: 1, fontSize: 10.5, fontWeight: 700 },
+  totalValue: { fontSize: 14, color: BRAND, textAlign: "right", minWidth: 90 },
 
   // ── Terms ─────────────────────────────────────────────────────────────────
   termsTitle: {
-    fontSize: 7,
+    fontSize: 6.5,
     fontWeight: 700,
     color: MUTED,
     textTransform: "uppercase",
     letterSpacing: 1,
-    marginBottom: 5,
+    marginBottom: 4,
   },
-  termsText: { fontSize: 8.5, color: MUTED, lineHeight: 1.6 },
+  termsText: { fontSize: 8, color: MUTED, lineHeight: 1.6 },
 
   // ── Footer ────────────────────────────────────────────────────────────────
   footer: {
     position: "absolute",
-    bottom: 24,
-    left: 44,
-    right: 44,
+    bottom: 22,
+    left: 40,
+    right: 40,
     borderTop: "0.5pt solid #e0e0e0",
-    paddingTop: 7,
+    paddingTop: 6,
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  footerText: { fontSize: 7.5, color: "#aaa" },
+  footerText: { fontSize: 7, color: "#aaa" },
 });
 
 function fmt(amount: number): string {
@@ -154,7 +148,6 @@ export function QuotationPDF({
     pricing.lineItems.find((li) => li.code === "TOLL_AND_PARKING")?.amount ?? 0;
   const vatOpt = inp.vatOption;
 
-  // serviceCharge + tollAmt [+ vatAmount if EXCLUSIVE] = finalPrice
   const serviceCharge =
     vatOpt === "VAT_EXCLUSIVE" ? finalPrice - vatAmount - tollAmt : finalPrice - tollAmt;
 
@@ -174,13 +167,13 @@ export function QuotationPDF({
   if (inp.additionalHelper) inclusions.push("Additional Helper");
   if (inp.numberOfDropoffs > 1) inclusions.push(`${inp.numberOfDropoffs} Drop-off Points`);
 
-  // ── Exclusions ─────────────────────────────────────────────────────────
+  // ── Exclusions (compact labels, 2-column) ─────────────────────────────
   const exclusions: string[] = [
-    `Excess hours beyond ${inp.includedHours} included hours (charged separately)`,
+    `Excess hours beyond ${inp.includedHours} included hrs`,
     "Packing and unpacking of items",
-    "Disassembly and reassembly of furniture",
+    "Disassembly / reassembly of furniture",
     "Fragile, hazardous, or prohibited goods",
-    "Insurance or liability coverage for goods in transit",
+    "Insurance / liability for goods in transit",
   ];
 
   return (
@@ -200,43 +193,49 @@ export function QuotationPDF({
           </View>
         </View>
 
-        {/* ── Client & Booking Details ── */}
+        {/* ── Client & Booking Details — 2-column grid ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Client & Booking Details</Text>
-          {[
-            ["Quotation Date", createdAt],
-            ["Client Name", clientName],
-            ["Contact Person", contactPerson ?? "—"],
-            ["Service Type", serviceType.replace(/_/g, " ")],
-            ["Pick-up Point", pickupPoint],
-            ["Drop-off Point", dropoffPoint],
-            ["Route / Area", routeArea ?? "—"],
-            ["Est. Distance", `${inp.estimatedDistanceKm} km`],
-          ].map(([label, value]) => (
-            <View key={label} style={s.detailRow}>
-              <Text style={s.detailLabel}>{label}</Text>
-              <Text style={s.detailValue}>{value}</Text>
+          {([
+            ["Quotation Date", createdAt,   "Service Type",  serviceType.replace(/_/g, " ")],
+            ["Client Name",    clientName,  "Pick-up Point", pickupPoint],
+            ["Contact Person", contactPerson ?? "—", "Drop-off Point", dropoffPoint],
+            ["Route / Area",   routeArea ?? "—",    "Est. Distance",  `${inp.estimatedDistanceKm} km`],
+          ] as [string, string, string, string][]).map(([l1, v1, l2, v2]) => (
+            <View key={l1} style={s.gridRow}>
+              <View style={s.gridCell}>
+                <Text style={s.detailLabel}>{l1}</Text>
+                <Text style={s.detailValue}>{v1}</Text>
+              </View>
+              <View style={s.gridCellRight}>
+                <Text style={s.detailLabel}>{l2}</Text>
+                <Text style={s.detailValue}>{v2}</Text>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* ── Truck & Crew ── */}
+        {/* ── Truck & Crew — 2-column grid ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Truck & Crew</Text>
-          {[
-            ["Truck Selected", truckType ?? "—"],
-            ["Driver", "1 driver included (assigned at booking)"],
-            ["Helpers", `${inp.numberOfHelpers} helper${inp.numberOfHelpers !== 1 ? "s" : ""}`],
-            ["Included Hours", `${inp.includedHours} hrs`],
-          ].map(([label, value]) => (
-            <View key={label} style={s.detailRow}>
-              <Text style={s.detailLabel}>{label}</Text>
-              <Text style={s.detailValue}>{value}</Text>
+          {([
+            ["Truck Selected", truckType ?? "—",  "Driver",         "1 driver included (assigned at booking)"],
+            ["Helpers",        `${inp.numberOfHelpers} helper${inp.numberOfHelpers !== 1 ? "s" : ""}`, "Included Hours", `${inp.includedHours} hrs`],
+          ] as [string, string, string, string][]).map(([l1, v1, l2, v2]) => (
+            <View key={l1} style={s.gridRow}>
+              <View style={s.gridCell}>
+                <Text style={s.detailLabel}>{l1}</Text>
+                <Text style={s.detailValue}>{v1}</Text>
+              </View>
+              <View style={s.gridCellRight}>
+                <Text style={s.detailLabel}>{l2}</Text>
+                <Text style={s.detailValue}>{v2}</Text>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* ── Service Inclusions ── */}
+        {/* ── Service Inclusions — 2-column bullet grid ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Service Inclusions</Text>
           <View style={s.bulletGrid}>
@@ -246,12 +245,14 @@ export function QuotationPDF({
           </View>
         </View>
 
-        {/* ── Exclusions ── */}
+        {/* ── Exclusions — 2-column bullet grid ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Exclusions</Text>
-          {exclusions.map((item) => (
-            <Text key={item} style={s.bulletItemFull}>{"✕  "}{item}</Text>
-          ))}
+          <View style={s.bulletGrid}>
+            {exclusions.map((item) => (
+              <Text key={item} style={s.bulletItem}>{"✕  "}{item}</Text>
+            ))}
+          </View>
         </View>
 
         {/* ── Pricing Summary ── */}
@@ -260,7 +261,8 @@ export function QuotationPDF({
 
           <View style={s.priceRow}>
             <Text style={s.priceLabel}>
-              Service Fee{vatOpt === "VAT_INCLUSIVE" ? " (incl. VAT)" : vatOpt === "VAT_EXCLUSIVE" ? " (ex-VAT)" : ""}
+              {"Service Fee"}
+              {vatOpt === "VAT_INCLUSIVE" ? " (incl. VAT)" : vatOpt === "VAT_EXCLUSIVE" ? " (ex-VAT)" : ""}
             </Text>
             <Text style={s.priceValue}>{fmt(serviceCharge)}</Text>
           </View>
@@ -277,11 +279,10 @@ export function QuotationPDF({
 
           <View style={s.priceRowMuted}>
             <Text style={s.priceLabelMuted}>
-              VAT Amount{vatOpt === "VAT_INCLUSIVE" ? " (included)" : vatOpt === "VAT_EXCLUSIVE" ? " (12%)" : ""}
+              {"VAT Amount"}
+              {vatOpt === "VAT_INCLUSIVE" ? " (included)" : vatOpt === "VAT_EXCLUSIVE" ? " (12%)" : ""}
             </Text>
-            <Text style={s.priceValueMuted}>
-              {vatOpt === "NON_VAT" ? "—" : fmt(vatAmount)}
-            </Text>
+            <Text style={s.priceValueMuted}>{vatOpt === "NON_VAT" ? "—" : fmt(vatAmount)}</Text>
           </View>
 
           <View style={s.priceDivider} />
@@ -292,14 +293,13 @@ export function QuotationPDF({
         </View>
 
         {/* ── Terms & Conditions ── */}
-        <View style={{ marginTop: 4 }}>
+        <View>
           <Text style={s.termsTitle}>Terms & Conditions</Text>
           <Text style={s.termsText}>
             {"•  "}This quotation is valid for 7 days from date of issue.{"\n"}
-            {"•  "}Prices are subject to change after the validity period.{"\n"}
             {"•  "}Toll and parking fees are pass-through costs subject to actual charges on the day of service.{"\n"}
-            {"•  "}Final booking is subject to truck and crew availability.{"\n"}
-            {"•  "}Excess hours are billed at the applicable overtime rate.
+            {"•  "}Excess hours are billed at the applicable overtime rate. Final booking is subject to truck and crew availability.{"\n"}
+            {"•  "}Prices are subject to change after the validity period.
           </Text>
         </View>
 
