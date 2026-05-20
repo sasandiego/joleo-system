@@ -1,13 +1,21 @@
 ---
 name: joleo-build-state
-description: "Joleo build state snapshot — Phase 1 complete + post-M10 polish (dashboard parity, font CDN, public URL, favicons)"
+description: "Joleo build state snapshot — Phase 1 complete + PDF redesign (client-facing, DejaVu ₱ fix, 1-page layout, ISE debug pending)"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 69dcdbc1-66d8-4654-88d8-5291b1e62c82
 ---
 
-**Last build state: 2026-05-20 — Phase 1 complete (M1–M10) + post-M10 polish. All pushed to `main` except 2026-05-20 polish (unstaged working-tree changes).**
+**Last build state: 2026-05-20 — Phase 1 complete (M1–M10) + post-M10 polish + PDF redesign. All pushed to `main`.**
+
+## PDF redesign (2026-05-20) — BLOCKER: ISE not yet resolved
+- PDF is now client-facing: 7 sections (Client & Booking Details, Truck & Crew, Service Inclusions, Exclusions, Pricing Summary, Terms & Conditions). Internal cost data (line items, overhead, tier grid) removed.
+- **₱ fix:** DejaVu Sans Regular (only confirmed font with U+20B1) copied to `public/fonts/`. Bold variant lacks ₱ — amount strings always use Regular weight.
+- **React import required:** `import React from "react"` must stay in `QuotationPDF.tsx` — @react-pdf/renderer v4 reconciler calls the component outside the automatic JSX transform scope. Removing it = `ReferenceError: React is not defined`.
+- **1-page layout:** Client & Booking Details uses 4 two-column grid rows (not 8 stacked); Truck & Crew uses 2 rows; tight spacing throughout.
+- **ISE blocker:** `/api/quotes/[id]/pdf` returns 500 in Next.js; tsx render test passes (27 KB). Try-catch now wraps `renderToBuffer` in `route.tsx` — next test will show actual error text. Fix once error message is known.
+- **createdBy tracked:** Both `Quote` and `Booking` have `createdById` → `User` relation. PDF footer shows "Prepared by: [username]".
 
 ## Post-M10 polish (2026-05-20)
 - Dashboard now matches mockup: Fleet Status card (Active/Under Repair/Inactive via `db.truck.groupBy`), Recent Quotes card (latest 3), "+ New Quote" header button, 2-col split layout
