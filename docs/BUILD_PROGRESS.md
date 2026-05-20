@@ -1,7 +1,7 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-19 (M8 complete)
+Last updated: 2026-05-20 (post-M10 polish complete)
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
@@ -81,11 +81,22 @@ Last updated: 2026-05-19 (M8 complete)
 ### M10 — Polish + Testing
 - `TEST_GUIDE.md` — full manual testing walkthrough for all Phase 1 features
 
+### Post-M10 polish (2026-05-20)
+- **Dashboard mockup parity** — added Fleet Status card (Active/Under Repair/Inactive truck counts via `db.truck.groupBy`), Recent Quotes card (latest 3, client · pickup → dropoff · ₱amount), "+ New Quote" header button, 2-col split layout (Today's Schedule left, Fleet+Quotes right). `src/app/(admin)/dashboard/page.tsx`.
+- **TruckCalendar React key warning fixed** — replaced `<></>` shorthand inside `.map()` with `<Fragment key={truck.id}>` (shorthand fragments can't carry a key). `src/components/bookings/TruckCalendar.tsx`.
+- **Fonts: Google Fonts CDN swap** — replaced `next/font/google` with literal `<link>` tags in `<head>`, matching `build-guide/joleo_mockup.html` exactly. `globals.css` CSS vars now resolve to literal font names. Added `.display-font` and `.mono` utility classes. `src/app/layout.tsx`, `src/app/globals.css`.
+- **Favicons** — generated `icon.png` (32×32) and `apple-icon.png` (180×180) from the truck logo in `docs/`. Trimmed white border via `sharp().trim()`. Next.js App Router auto-wires both into `<head>`.
+- **middleware.ts matcher updated** — excludes `icon.png` and `apple-icon.png` so the auth guard doesn't 307-redirect them.
+- **Public URL live** — `https://joleo.sas-agent.co.uk` via Cloudflare tunnel (Nucbox cloudflared, tunnel ID `bda80536-...`). CNAME added via Cloudflare dashboard (cert.pem on Nucbox isn't authorized for sas-agent.co.uk zone). `/etc/cloudflared/config.yml` ingress entry added at top.
+- **NEXTAUTH_URL** set to `https://joleo.sas-agent.co.uk` in `.env.local` so post-login callbacks resolve correctly.
+- **pnpm-workspace.yaml** — `allowBuilds:` block with booleans (`@prisma/client`, `@prisma/engines`, `esbuild`, `prisma`, `sharp`, `unrs-resolver`), required by pnpm 11 to run postinstall scripts.
+- `pnpm exec tsc --noEmit` ✅ clean | `pnpm test --run` ✅ 41/41 | Code review via `/code-review` found no actionable issues (only finding was below 80 confidence threshold).
+
 ## 🧪 Experimental (treat as fragile)
 _(none)_
 
 ## 🚫 Known Issues (Deprioritized)
-- favicon.ico missing → 404 in browser console (harmless, add in M10 polish)
+- ~~favicon.ico missing → 404 in browser console~~ — resolved 2026-05-20 (`src/app/icon.png` + `src/app/apple-icon.png`)
 - AUTH_TRUST_HOST=true in .env.local — dev server port no longer matters
 
 ## Milestone Status

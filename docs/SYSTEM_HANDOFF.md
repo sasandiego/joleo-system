@@ -1,10 +1,12 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-19 — All milestones complete (M1–M10)
+2026-05-20 — Post-M10 polish: dashboard mockup parity, font CDN swap, public URL, favicons
 
 ## Current System State
 Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 milestones (M1–M10) complete and pushed to GitHub (`main`). Full feature set: auth, masterlists CRUD, rate settings, pricing engine, quote builder + PDF, bookings with FSM, truck availability calendar, live dashboard. Login with `jess` / `admin123` (or credentials in `.env.local`).
+
+**Public URL:** `https://joleo.sas-agent.co.uk` (via the existing Nucbox cloudflared tunnel, ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`). Dev server bound to `*:3000`, accessible via LAN (`192.168.254.166`), Tailscale (`100.87.42.111`), and the public hostname. `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` set in `.env.local` so post-login redirects resolve correctly.
 
 **Phase 1 is complete. Phase 2 (customer-facing portal) is parked.**
 
@@ -31,7 +33,13 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 miles
 - `(admin)/bookings/new/page.tsx` — standalone booking creation form
 - `(admin)/bookings/[id]/page.tsx` — booking detail with assignment form + status transitions
 - `(admin)/calendar/page.tsx` — week grid; `?week=YYYY-MM-DD` param; loads trucks + bookings for week
-- `(admin)/dashboard/page.tsx` — live stats + today's schedule
+- `(admin)/dashboard/page.tsx` — live stats + today's schedule + Fleet Status card (Active/Under Repair/Inactive via `db.truck.groupBy`) + Recent Quotes card (latest 3) + "+ New Quote" header button + 2-col split layout
+
+### Top-level app files (`src/app/`)
+- `icon.png` — 32×32 favicon (generated from `docs/356378784_*.jpg` via sharp + trim)
+- `apple-icon.png` — 180×180 Apple touch icon
+- `layout.tsx` — Google Fonts CDN `<link>` tags in `<head>` (Fraunces / DM Sans / JetBrains Mono); no `next/font/google` imports
+- `globals.css` — CSS vars resolve to literal `'Fraunces'` / `'DM Sans'` / `'JetBrains Mono'`; `.display-font` and `.mono` utility classes added
 
 ### Components (`src/components/`)
 - `layout/Sidebar.tsx` — nav-dot items, "Transport · Admin", active state via usePathname
@@ -67,7 +75,7 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 miles
 
 ### Lib
 - `src/lib/db.ts`, `env.ts`, `format.ts`, `utils.ts`
-- `src/middleware.ts` — auth guard via edge config
+- `src/middleware.ts` — auth guard via edge config; matcher excludes `_next/static`, `_next/image`, `favicon.ico`, `icon.png`, `apple-icon.png`
 - `src/types/next-auth.d.ts` — session/user/JWT type augmentation
 
 ### Schema models
@@ -112,22 +120,50 @@ Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 miles
 - Call `.toNumber()` in server page components before passing as props
 - Applies to: Driver, Helper, RouteArea, RateSettings Decimal fields
 
+### Decision: Fonts via Google Fonts CDN, not next/font (2026-05-20)
+- Replaced `next/font/google` with literal `<link>` tags in `src/app/layout.tsx`, matching `build-guide/joleo_mockup.html` exactly
+- User directive: *"Do not substitute fonts. Match the Joleo mockup exactly."*
+- `globals.css` CSS vars now resolve to literal `'Fraunces'`, `'DM Sans'`, `'JetBrains Mono'`
+- `.display-font` and `.mono` utility classes added per mockup convention
+- Do NOT migrate back to `next/font` without explicit user confirmation, even for performance reasons
+
+### Decision: Public access via existing cloudflared tunnel (2026-05-20)
+- Reused the Nucbox's `aplaya` tunnel (ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`) rather than spinning up a new tunnel
+- Added `joleo.sas-agent.co.uk` ingress (above the catch-all 404) → `http://localhost:3000` in `/etc/cloudflared/config.yml`
+- The CNAME for the sas-agent.co.uk zone was added via the Cloudflare dashboard, because cloudflared's `~/.cloudflared/cert.pem` on the Nucbox is only authorized for the aplaya-dev.cc zone
+- Do NOT touch the other ingress entries (`aplaya-dev.cc`, `n8n.sas-agent.co.uk`, etc.) — they serve other projects on the same Nucbox
+
+### Decision: Favicons from truck logo (2026-05-20)
+- Source: `docs/356378784_599377255674979_8027307442482878578_n.jpg` (truck silhouette + "JOLEO TRANSPORT" wordmark)
+- Generated via `sharp().trim()` (removes white border) then `.resize()` to 32×32 and 180×180
+- Files: `src/app/icon.png`, `src/app/apple-icon.png` (Next.js App Router auto-wires both)
+- To regenerate: write a one-shot mjs script that imports sharp from its absolute pnpm path (`node_modules/.pnpm/sharp@*/node_modules/sharp/lib/index.js`)
+
 ---
 
 ## Active Gotchas
 - Tailwind v4: `@import "tailwindcss"` in globals.css, `@tailwindcss/postcss` in postcss.config.mjs
-- Auth.js v5: `next-auth@beta`; `AUTH_TRUST_HOST=true` in .env.local (not NEXTAUTH_URL)
+- Auth.js v5: `next-auth@beta`; `AUTH_TRUST_HOST=true` AND `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` in .env.local (the latter is needed so post-login callbacks resolve to the public hostname, not localhost)
 - `jose` v6 Edge Runtime CompressionStream warnings — harmless, known upstream issue
 - `env.ts` validates at startup — missing required var = app won't start
 - Sidebar uses inline styles for SSR brand var consistency
 - All Dialogs use `@radix-ui/react-dialog` — already installed
 - `decimal.js` already installed — use it for all currency math
+- `middleware.ts` matcher MUST exclude any top-level app-root icon files (`icon.png`, `apple-icon.png`), otherwise the auth guard 307-redirects them and the favicon never loads
+- pnpm 11 requires `allowBuilds:` in `pnpm-workspace.yaml` with **booleans**, not the placeholder strings pnpm sometimes auto-writes. Without booleans, Prisma/sharp/esbuild postinstall scripts are skipped (`[ERR_PNPM_IGNORED_BUILDS]`)
+- cloudflared cert.pem on the Nucbox is only authorized for the aplaya-dev.cc zone. For sas-agent.co.uk records (or any other zone), create the CNAME via the Cloudflare dashboard manually — do NOT rely on `cloudflared tunnel route dns`
+- sudo on the Nucbox needs a real TTY. Claude Code's Bash tool and `!`-prefixed commands cannot prompt for the password; the user must run sudo from a separate terminal (or `ssh agent@nucbox`)
 
 ---
 
-## Phase 1 Complete — No Pending Next Steps
-
-All 10 milestones are done. Phase 2 (customer portal) is parked.
+## Session Continuity (2026-05-20)
+- Last worked on: post-M10 polish — dashboard mockup parity (Fleet Status + Recent Quotes + "+ New Quote" header + 2-col split), font CDN swap, TruckCalendar key fix, public URL via Cloudflare tunnel, favicons
+- Next logical step: nothing queued. Phase 2 (customer portal) still parked.
+- Do NOT touch this session:
+  - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox (serve other projects)
+  - Font system (must stay on Google Fonts CDN per user directive)
+  - Dashboard layout (mockup-exact intentional)
+  - `pnpm-workspace.yaml` `allowBuilds:` booleans (needed for postinstall scripts)
 
 ---
 

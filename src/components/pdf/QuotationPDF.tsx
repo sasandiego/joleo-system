@@ -1,173 +1,177 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import type { PricingResult } from "@/features/pricing/types";
+
+Font.register({
+  family: "Roboto",
+  fonts: [
+    { src: "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf" },
+    { src: "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf", fontWeight: 700 },
+  ],
+});
+
+const BRAND = "#6b1924";
+const MUTED = "#888888";
+const BORDER = "#e0e0e0";
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
     fontSize: 10,
-    padding: "40pt 48pt",
+    paddingTop: 40,
+    paddingBottom: 60,
+    paddingHorizontal: 48,
     color: "#1a1a1a",
   },
   header: {
-    borderBottom: "2pt solid #6b1924",
-    paddingBottom: 12,
-    marginBottom: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
+    borderBottom: "2pt solid #6b1924",
+    paddingBottom: 12,
+    marginBottom: 24,
   },
   brandMark: {
-    fontSize: 22,
-    fontFamily: "Helvetica-Bold",
-    color: "#6b1924",
-    letterSpacing: 1,
+    fontSize: 24,
+    fontWeight: 700,
+    color: BRAND,
   },
   brandSub: {
     fontSize: 8,
-    color: "#888",
+    color: MUTED,
     letterSpacing: 2,
-    textTransform: "uppercase",
     marginTop: 2,
   },
-  quoteTitle: {
-    textAlign: "right",
+  headerRight: {
+    alignItems: "flex-end",
   },
-  quoteTitleText: {
+  quotationLabel: {
     fontSize: 14,
-    fontFamily: "Helvetica-Bold",
-    color: "#6b1924",
+    fontWeight: 700,
+    color: BRAND,
   },
   quoteNo: {
-    fontSize: 10,
-    color: "#888",
+    fontSize: 9,
+    color: MUTED,
     marginTop: 2,
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 8,
-    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+    fontWeight: 700,
     letterSpacing: 1.5,
+    color: BRAND,
     textTransform: "uppercase",
-    color: "#6b1924",
-    marginBottom: 8,
-    paddingBottom: 4,
     borderBottom: "0.5pt solid #e0e0e0",
+    paddingBottom: 4,
+    marginBottom: 10,
   },
-  grid2: {
+  row2: {
     flexDirection: "row",
     gap: 16,
   },
-  gridCell: {
+  col: {
     flex: 1,
   },
   fieldLabel: {
     fontSize: 7.5,
-    color: "#888",
-    marginBottom: 2,
+    color: MUTED,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginBottom: 2,
   },
   fieldValue: {
     fontSize: 10,
     color: "#1a1a1a",
   },
-  table: {
-    width: "100%",
+  clientLabel: {
+    fontSize: 8,
+    color: MUTED,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 4,
   },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 3,
+  clientName: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#1a1a1a",
   },
-  tableRowSubtotal: {
+  chargeRow: {
     flexDirection: "row",
     paddingVertical: 5,
-    borderTop: "1pt solid #e0e0e0",
-    marginTop: 2,
   },
-  tableRowTotal: {
+  chargeRowMuted: {
     flexDirection: "row",
-    paddingVertical: 6,
+    paddingVertical: 4,
+  },
+  chargeLabel: {
+    flex: 1,
+    fontSize: 10,
+  },
+  chargeLabelMuted: {
+    flex: 1,
+    fontSize: 9.5,
+    color: MUTED,
+  },
+  chargeAmount: {
+    fontSize: 10,
+    textAlign: "right",
+    minWidth: 90,
+  },
+  chargeAmountMuted: {
+    fontSize: 9.5,
+    color: MUTED,
+    textAlign: "right",
+    minWidth: 90,
+  },
+  totalDivider: {
     borderTop: "2pt solid #6b1924",
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  tableLabel: {
-    flex: 1,
-    fontSize: 9.5,
-  },
-  tableLabelBold: {
-    flex: 1,
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-  },
-  tableAmount: {
-    fontSize: 9.5,
-    textAlign: "right",
-    width: 80,
-  },
-  tableAmountBold: {
-    fontSize: 10,
-    textAlign: "right",
-    fontFamily: "Helvetica-Bold",
-    width: 80,
-  },
-  tableAmountTotal: {
-    fontSize: 11,
-    textAlign: "right",
-    fontFamily: "Helvetica-Bold",
-    color: "#6b1924",
-    width: 80,
-  },
-  tierRow: {
+  totalRow: {
     flexDirection: "row",
-    gap: 8,
-    marginVertical: 12,
+    paddingTop: 6,
   },
-  tierCard: {
+  totalLabel: {
     flex: 1,
-    border: "0.5pt solid #e0e0e0",
-    borderRadius: 4,
-    padding: 8,
-    alignItems: "center",
+    fontSize: 11,
+    fontWeight: 700,
   },
-  tierCardSelected: {
-    flex: 1,
-    border: "1pt solid #6b1924",
-    borderRadius: 4,
-    padding: 8,
-    alignItems: "center",
-    backgroundColor: "#fdf2f2",
+  totalAmount: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: BRAND,
+    textAlign: "right",
+    minWidth: 90,
   },
-  tierLabel: {
-    fontSize: 7,
+  vatNote: {
+    fontSize: 8,
+    color: MUTED,
+    marginTop: 6,
+  },
+  termsBox: {
+    marginTop: 32,
+    borderTop: "0.5pt solid #e0e0e0",
+    paddingTop: 12,
+  },
+  termsTitle: {
+    fontSize: 7.5,
+    fontWeight: 700,
+    color: MUTED,
     textTransform: "uppercase",
     letterSpacing: 1,
-    color: "#888",
-    marginBottom: 3,
+    marginBottom: 6,
   },
-  tierLabelSelected: {
-    fontSize: 7,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: "#6b1924",
-    marginBottom: 3,
-  },
-  tierValue: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-  },
-  tierValueSelected: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    color: "#6b1924",
-  },
-  muted: {
-    color: "#888",
+  termsText: {
+    fontSize: 8.5,
+    color: MUTED,
+    lineHeight: 1.6,
   },
   footer: {
     position: "absolute",
-    bottom: 30,
+    bottom: 28,
     left: 48,
     right: 48,
     borderTop: "0.5pt solid #e0e0e0",
@@ -181,7 +185,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function formatPhp(amount: number): string {
+function fmt(amount: number): string {
   return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -199,7 +203,6 @@ interface QuotationPDFProps {
 
 export function QuotationPDF({
   quoteNo,
-  status,
   clientName,
   serviceType,
   pickupPoint,
@@ -208,7 +211,16 @@ export function QuotationPDF({
   createdAt,
   createdBy,
 }: QuotationPDFProps) {
-  const nonZeroItems = pricing.lineItems.filter((li) => li.amount !== 0);
+  const { inputsSnapshot: inputs, finalPrice, vatAmount } = pricing;
+  const tollAmt =
+    pricing.lineItems.find((li) => li.code === "TOLL_AND_PARKING")?.amount ?? 0;
+  const vatOption = inputs.vatOption;
+
+  // serviceCharge + tollAmt [+ vatAmount if EXCLUSIVE] = finalPrice
+  const serviceCharge =
+    vatOption === "VAT_EXCLUSIVE"
+      ? finalPrice - vatAmount - tollAmt
+      : finalPrice - tollAmt;
 
   return (
     <Document>
@@ -217,109 +229,107 @@ export function QuotationPDF({
         <View style={styles.header}>
           <View>
             <Text style={styles.brandMark}>Joleo</Text>
-            <Text style={styles.brandSub}>Transport · Caloocan City</Text>
+            <Text style={styles.brandSub}>TRANSPORT · CALOOCAN CITY</Text>
           </View>
-          <View style={styles.quoteTitle}>
-            <Text style={styles.quoteTitleText}>QUOTATION</Text>
-            <Text style={styles.quoteNo}>{quoteNo} · {status}</Text>
+          <View style={styles.headerRight}>
+            <Text style={styles.quotationLabel}>QUOTATION</Text>
+            <Text style={styles.quoteNo}>{quoteNo}</Text>
             <Text style={styles.quoteNo}>{createdAt}</Text>
           </View>
         </View>
 
-        {/* Client & job info */}
+        {/* Prepared For */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Booking Information</Text>
-          <View style={styles.grid2}>
-            <View style={styles.gridCell}>
-              <Text style={styles.fieldLabel}>Client</Text>
-              <Text style={styles.fieldValue}>{clientName}</Text>
-            </View>
-            <View style={styles.gridCell}>
+          <Text style={styles.clientLabel}>Prepared For</Text>
+          <Text style={styles.clientName}>{clientName}</Text>
+        </View>
+
+        {/* Service Details */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Service Details</Text>
+          <View style={[styles.row2, { marginBottom: 10 }]}>
+            <View style={styles.col}>
               <Text style={styles.fieldLabel}>Service Type</Text>
               <Text style={styles.fieldValue}>{serviceType.replace(/_/g, " ")}</Text>
             </View>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>Estimated Distance</Text>
+              <Text style={styles.fieldValue}>{inputs.estimatedDistanceKm} km</Text>
+            </View>
           </View>
-          <View style={[styles.grid2, { marginTop: 10 }]}>
-            <View style={styles.gridCell}>
+          <View style={styles.row2}>
+            <View style={styles.col}>
               <Text style={styles.fieldLabel}>Pick-up Point</Text>
               <Text style={styles.fieldValue}>{pickupPoint}</Text>
             </View>
-            <View style={styles.gridCell}>
+            <View style={styles.col}>
               <Text style={styles.fieldLabel}>Drop-off Point</Text>
               <Text style={styles.fieldValue}>{dropoffPoint}</Text>
             </View>
           </View>
+          {inputs.numberOfHelpers > 0 && (
+            <View style={{ marginTop: 10 }}>
+              <Text style={styles.fieldLabel}>Helpers Included</Text>
+              <Text style={styles.fieldValue}>
+                {inputs.numberOfHelpers} helper{inputs.numberOfHelpers !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Price computation */}
+        {/* Charges */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Price Computation</Text>
-          <View style={styles.table}>
-            {nonZeroItems.map((li) => (
-              <View key={li.code} style={styles.tableRow}>
-                <Text style={styles.tableLabel}>{li.label}</Text>
-                <Text style={styles.tableAmount}>{formatPhp(li.amount)}</Text>
-              </View>
-            ))}
-            <View style={styles.tableRowSubtotal}>
-              <Text style={styles.tableLabelBold}>Direct Cost Subtotal</Text>
-              <Text style={styles.tableAmountBold}>{formatPhp(pricing.directCostSubtotal)}</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableLabel, styles.muted]}>Overhead Allocation</Text>
-              <Text style={[styles.tableAmount, styles.muted]}>{formatPhp(pricing.overheadAllocation)}</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableLabel, styles.muted]}>Contingency Buffer</Text>
-              <Text style={[styles.tableAmount, styles.muted]}>{formatPhp(pricing.contingencyBuffer)}</Text>
-            </View>
-            <View style={styles.tableRowSubtotal}>
-              <Text style={styles.tableLabelBold}>Total Cost Before Profit</Text>
-              <Text style={styles.tableAmountBold}>{formatPhp(pricing.totalCostBeforeProfit)}</Text>
-            </View>
+          <Text style={styles.sectionTitle}>Charges</Text>
+
+          <View style={styles.chargeRow}>
+            <Text style={styles.chargeLabel}>Service Fee</Text>
+            <Text style={styles.chargeAmount}>{fmt(serviceCharge)}</Text>
           </View>
 
-          {/* Tier grid */}
-          <View style={styles.tierRow}>
-            {[
-              { label: "Floor", value: pricing.floorPrice, selected: false },
-              { label: "Target", value: pricing.targetPrice, selected: true },
-              { label: "Ceiling", value: pricing.ceilingPrice, selected: false },
-            ].map(({ label, value, selected }) => (
-              <View key={label} style={selected ? styles.tierCardSelected : styles.tierCard}>
-                <Text style={selected ? styles.tierLabelSelected : styles.tierLabel}>{label}</Text>
-                <Text style={selected ? styles.tierValueSelected : styles.tierValue}>{formatPhp(value)}</Text>
-              </View>
-            ))}
+          {tollAmt > 0 && (
+            <View style={styles.chargeRowMuted}>
+              <Text style={styles.chargeLabelMuted}>Toll & Parking (pass-through)</Text>
+              <Text style={styles.chargeAmountMuted}>{fmt(tollAmt)}</Text>
+            </View>
+          )}
+
+          {vatOption === "VAT_EXCLUSIVE" && (
+            <View style={styles.chargeRowMuted}>
+              <Text style={styles.chargeLabelMuted}>VAT (12%)</Text>
+              <Text style={styles.chargeAmountMuted}>{fmt(vatAmount)}</Text>
+            </View>
+          )}
+
+          <View style={styles.totalDivider} />
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total Amount Due</Text>
+            <Text style={styles.totalAmount}>{fmt(finalPrice)}</Text>
           </View>
 
-          <View style={styles.table}>
-            {pricing.discountAmount > 0 && (
-              <View style={styles.tableRow}>
-                <Text style={[styles.tableLabel, styles.muted]}>Discount</Text>
-                <Text style={[styles.tableAmount, styles.muted]}>−{formatPhp(pricing.discountAmount)}</Text>
-              </View>
-            )}
-            {pricing.vatAmount > 0 && (
-              <View style={styles.tableRow}>
-                <Text style={[styles.tableLabel, styles.muted]}>
-                  VAT ({pricing.inputsSnapshot.vatOption.replace(/_/g, " ")})
-                </Text>
-                <Text style={[styles.tableAmount, styles.muted]}>{formatPhp(pricing.vatAmount)}</Text>
-              </View>
-            )}
-            <View style={styles.tableRowTotal}>
-              <Text style={styles.tableLabelBold}>Final Quoted Price</Text>
-              <Text style={styles.tableAmountTotal}>{formatPhp(pricing.finalPrice)}</Text>
-            </View>
-          </View>
+          {vatOption === "VAT_INCLUSIVE" && (
+            <Text style={styles.vatNote}>VAT (12%) is included in the total amount.</Text>
+          )}
+          {vatOption === "NON_VAT" && (
+            <Text style={styles.vatNote}>No VAT applicable to this quotation.</Text>
+          )}
+        </View>
+
+        {/* Terms */}
+        <View style={styles.termsBox}>
+          <Text style={styles.termsTitle}>Terms & Conditions</Text>
+          <Text style={styles.termsText}>
+            {"•"} This quotation is valid for 7 days from date of issue.{"\n"}
+            {"•"} Prices are subject to change after the validity period.{"\n"}
+            {"•"} Toll and parking fees are pass-through costs subject to actual charges.{"\n"}
+            {"•"} Final booking is subject to truck and crew availability.
+          </Text>
         </View>
 
         {/* Footer */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>Joleo Transport · Caloocan City</Text>
           <Text style={styles.footerText}>Prepared by: {createdBy}</Text>
-          <Text style={styles.footerText}>This quotation is valid for 7 days.</Text>
+          <Text style={styles.footerText}>Thank you for your business.</Text>
         </View>
       </Page>
     </Document>

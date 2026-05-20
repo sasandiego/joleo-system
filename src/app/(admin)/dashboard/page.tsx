@@ -19,15 +19,14 @@ export default async function DashboardPage() {
 
   const [
     activeBookings,
-    activeTrucks,
-    totalTrucks,
+    truckStatusCounts,
     quotesThisMonth,
     revenueThisMonth,
     todayBookings,
+    recentQuotes,
   ] = await Promise.all([
     db.booking.count({ where: { status: { in: ["CONFIRMED", "DISPATCHED", "QUOTED"] } } }),
-    db.truck.count({ where: { status: "ACTIVE" } }),
-    db.truck.count(),
+    db.truck.groupBy({ by: ["status"], _count: { _all: true } }),
     db.quote.count({ where: { createdAt: { gte: monthStart } } }),
     db.booking.aggregate({
       _sum: { quotedAmount: true },
@@ -48,7 +47,25 @@ export default async function DashboardPage() {
         driver: { select: { fullName: true } },
       },
     }),
+    db.quote.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      include: {
+        client: { select: { companyName: true } },
+      },
+    }),
   ]);
+
+  const fleetByStatus: Record<"ACTIVE" | "UNDER_REPAIR" | "INACTIVE", number> = {
+    ACTIVE: 0,
+    UNDER_REPAIR: 0,
+    INACTIVE: 0,
+  };
+  for (const row of truckStatusCounts) {
+    fleetByStatus[row.status as keyof typeof fleetByStatus] = row._count._all;
+  }
+  const activeTrucks = fleetByStatus.ACTIVE;
+  const totalTrucks = fleetByStatus.ACTIVE + fleetByStatus.UNDER_REPAIR + fleetByStatus.INACTIVE;
 
   const revenueMTD = revenueThisMonth._sum.quotedAmount?.toNumber() ?? 0;
 
@@ -70,7 +87,23 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle={todayLabel} />
+      <PageHeader title="Dashboard" subtitle={todayLabel}>
+        <Link
+          href="/quotes/new"
+          style={{
+            background: "var(--maroon)",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            padding: "9px 16px",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+          }}
+        >
+          + New Quote
+        </Link>
+      </PageHeader>
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
@@ -88,7 +121,7 @@ export default async function DashboardPage() {
           <div
             key={stat.label}
             style={{
-              background: "var(--card)",
+              background: "var(--paper)",
               border: "1px solid var(--border)",
               borderRadius: 10,
               padding: 20,
@@ -107,17 +140,27 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {/* Two-column split: Today's Schedule (left) | Fleet Status + Recent Quotes (right) */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+
       {/* Today's schedule */}
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "20px 24px" }}>
+      <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 10, padding: "20px 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>
-            Today&apos;s Schedule
+          <div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>
+              Today&apos;s Schedule
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+              {todayBookings.length === 0
+                ? "Nothing scheduled"
+                : `${todayBookings.length} dispatch${todayBookings.length === 1 ? "" : "es"} scheduled`}
+            </div>
           </div>
           <Link
             href="/bookings"
             style={{ fontSize: 12, color: "var(--maroon)", textDecoration: "none" }}
           >
-            View all bookings →
+            View all →
           </Link>
         </div>
 
@@ -190,6 +233,85 @@ export default async function DashboardPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Right column: Fleet Status + Recent Quotes stacked */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Fleet Status */}
+        <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>Fleet Status</div>
+          </div>
+          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              { label: "Active", count: fleetByStatus.ACTIVE, badge: { bg: "#E8F5EC", color: "var(--success)" } },
+              { label: "Under Repair", count: fleetByStatus.UNDER_REPAIR, badge: { bg: "#FCF4E0", color: "var(--warning)" } },
+              { label: "Inactive", count: fleetByStatus.INACTIVE, badge: { bg: "#F0EFEC", color: "var(--ink-soft)" } },
+            ].map((row) => (
+              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13 }}>{row.label}</span>
+                <span style={{
+                  display: "inline-block",
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  background: row.badge.bg,
+                  color: row.badge.color,
+                }}>
+                  {row.count} truck{row.count === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Quotes */}
+        <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>Recent Quotes</div>
+            <Link href="/quotes" style={{ fontSize: 12, color: "var(--maroon)", textDecoration: "none" }}>
+              View all →
+            </Link>
+          </div>
+          <div style={{ padding: "4px 20px 12px" }}>
+            {recentQuotes.length === 0 ? (
+              <p style={{ color: "var(--muted)", fontSize: 13, margin: "12px 0" }}>No quotes yet.</p>
+            ) : (
+              recentQuotes.map((q, i) => {
+                const clientName = q.client?.companyName ?? q.walkInName ?? "Walk-in";
+                const pickup = q.pickupPoint.split(",")[0];
+                const dropoff = q.dropoffPoint.split(",")[0];
+                return (
+                  <Link
+                    key={q.id}
+                    href={`/quotes/${q.id}`}
+                    style={{
+                      display: "block",
+                      padding: "12px 0",
+                      borderBottom: i === recentQuotes.length - 1 ? "none" : "1px solid var(--border)",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-mono)" }}>
+                      {q.quoteNo}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", margin: "2px 0" }}>
+                      {clientName} · {pickup} → {dropoff}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--maroon)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                      ₱{q.finalPrice.toNumber().toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
       </div>
     </div>
   );

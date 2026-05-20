@@ -17,10 +17,10 @@
   --color-warning: #B8801C;
   --color-danger: #B8362B;
 
-  /* Typography */
-  --font-display: var(--font-fraunces), serif;
-  --font-sans: var(--font-dm-sans), sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+  /* Typography — loaded via Google Fonts CDN in layout.tsx */
+  --font-display: 'Fraunces', serif;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 :root {
@@ -49,13 +49,23 @@
 
 html,
 body {
-  font-family: var(--font-sans);
+  font-family: 'DM Sans', sans-serif;
   background: var(--surface);
   color: var(--ink);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.display-font {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* Truck ID pill — used across tables and cards */

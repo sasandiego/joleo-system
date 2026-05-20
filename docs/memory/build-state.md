@@ -1,13 +1,23 @@
 ---
 name: joleo-build-state
-description: "Joleo build state snapshot — all Phase 1 milestones complete, key architectural decisions to remember"
+description: "Joleo build state snapshot — Phase 1 complete + post-M10 polish (dashboard parity, font CDN, public URL, favicons)"
 metadata: 
   node_type: memory
   type: project
   originSessionId: 69dcdbc1-66d8-4654-88d8-5291b1e62c82
 ---
 
-**Last build state: 2026-05-19 — Phase 1 complete (M1–M10). All pushed to `main`.**
+**Last build state: 2026-05-20 — Phase 1 complete (M1–M10) + post-M10 polish. All pushed to `main` except 2026-05-20 polish (unstaged working-tree changes).**
+
+## Post-M10 polish (2026-05-20)
+- Dashboard now matches mockup: Fleet Status card (Active/Under Repair/Inactive via `db.truck.groupBy`), Recent Quotes card (latest 3), "+ New Quote" header button, 2-col split layout
+- TruckCalendar Fragment key warning fixed
+- Fonts: Google Fonts CDN (literal `<link>` tags), no `next/font`. Per user directive "Do not substitute fonts. Match the Joleo mockup exactly." — do NOT migrate back.
+- Favicons: `src/app/icon.png` (32×32) + `src/app/apple-icon.png` (180×180) from `docs/356378784_*.jpg`
+- middleware matcher excludes `icon.png`, `apple-icon.png`
+- Public URL: **https://joleo.sas-agent.co.uk** via existing Nucbox cloudflared tunnel (ID `bda80536-...`). CNAME created in Cloudflare dashboard.
+- `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` in `.env.local`
+- pnpm 11 needs `allowBuilds:` booleans in `pnpm-workspace.yaml`
 
 ## What's built
 

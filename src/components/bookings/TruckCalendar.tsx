@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useRouter } from "next/navigation";
@@ -155,7 +156,7 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
           const rowBg = ti % 2 === 0 ? "transparent" : "var(--surface)";
 
           return (
-            <>
+            <Fragment key={truck.id}>
               {/* Truck label cell */}
               <div
                 key={`label-${truck.id}`}
@@ -236,7 +237,7 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
                   </div>
                 );
               })}
-            </>
+            </Fragment>
           );
         })}
       </div>
