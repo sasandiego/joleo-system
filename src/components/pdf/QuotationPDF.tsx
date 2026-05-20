@@ -1,11 +1,14 @@
+import path from "path";
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import type { PricingResult } from "@/features/pricing/types";
 
+// DejaVu Sans is used because it includes U+20B1 (₱) in the Regular weight.
+// Bold weight lacks ₱, so all amount strings use fontFamily "DejaVu" without bold.
 Font.register({
-  family: "Roboto",
+  family: "DejaVu",
   fonts: [
-    { src: "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf" },
-    { src: "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc9.ttf", fontWeight: 700 },
+    { src: path.resolve(process.cwd(), "public/fonts/DejaVuSans.ttf") },
+    { src: path.resolve(process.cwd(), "public/fonts/DejaVuSans-Bold.ttf"), fontWeight: 700 },
   ],
 });
 
@@ -15,7 +18,7 @@ const BORDER = "#e0e0e0";
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Roboto",
+    fontFamily: "DejaVu",
     fontSize: 10,
     paddingTop: 40,
     paddingBottom: 60,
@@ -140,8 +143,7 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
   totalAmount: {
-    fontSize: 14,
-    fontWeight: 700,
+    fontSize: 16,
     color: BRAND,
     textAlign: "right",
     minWidth: 90,
