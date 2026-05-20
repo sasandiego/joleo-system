@@ -18,12 +18,21 @@ export async function GET(
   const quote = await db.quote.findUnique({
     where: { id },
     include: {
-      client: { select: { companyName: true } },
+      client: { select: { companyName: true, contactPerson: true } },
       createdBy: { select: { username: true } },
     },
   });
 
   if (!quote) return new Response("Not found", { status: 404 });
+
+  const [truckType, routeArea] = await Promise.all([
+    quote.truckTypeId
+      ? db.truckType.findUnique({ where: { id: quote.truckTypeId }, select: { label: true } })
+      : null,
+    quote.routeAreaId
+      ? db.routeArea.findUnique({ where: { id: quote.routeAreaId }, select: { label: true } })
+      : null,
+  ]);
 
   const pricing = quote.pricingSnapshot as unknown as PricingResult;
 
@@ -32,9 +41,12 @@ export async function GET(
       quoteNo={quote.quoteNo}
       status={quote.status}
       clientName={quote.client?.companyName ?? quote.walkInName ?? "Walk-in"}
+      contactPerson={quote.client?.contactPerson ?? null}
       serviceType={quote.serviceType}
       pickupPoint={quote.pickupPoint}
       dropoffPoint={quote.dropoffPoint}
+      routeArea={routeArea?.label ?? null}
+      truckType={truckType?.label ?? null}
       pricing={pricing}
       createdAt={formatDate(quote.createdAt)}
       createdBy={quote.createdBy.username}
