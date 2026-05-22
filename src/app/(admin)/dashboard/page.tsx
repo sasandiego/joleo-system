@@ -90,6 +90,7 @@ export default async function DashboardPage() {
       <PageHeader title="Dashboard" subtitle={todayLabel}>
         <Link
           href="/quotes/new"
+          data-btn
           style={{
             background: "var(--maroon)",
             color: "white",
@@ -108,34 +109,105 @@ export default async function DashboardPage() {
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
         {[
-          { label: "Active Bookings", value: String(activeBookings) },
-          { label: "Fleet Active", value: `${activeTrucks} / ${totalTrucks}` },
-          { label: "Quotes This Month", value: String(quotesThisMonth) },
+          { label: "Active Bookings", value: String(activeBookings), unit: null },
+          { label: "Fleet Active", value: String(activeTrucks), unit: `/ ${totalTrucks}` },
+          { label: "Quotes This Month", value: String(quotesThisMonth), unit: null },
           {
             label: "Revenue MTD",
             value: revenueMTD > 0
-              ? `₱${(revenueMTD / 1000).toFixed(1)}k`
-              : "₱0",
+              ? (revenueMTD / 1000).toFixed(1)
+              : "0",
+            unit: revenueMTD > 0 ? "₱k" : "₱",
           },
-        ].map((stat) => (
+        ].map((stat, i) => (
           <div
             key={stat.label}
+            data-stat-card
             style={{
               background: "var(--paper)",
               border: "1px solid var(--border)",
               borderRadius: 10,
-              padding: 20,
+              padding: "22px 22px 24px",
               position: "relative",
               overflow: "hidden",
             }}
           >
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--muted)", fontWeight: 600 }}>
+            {/* Index numeral — small editorial flourish, top-right */}
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 14,
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--muted)",
+                opacity: 0.55,
+                letterSpacing: "0.06em",
+              }}
+            >
+              0{i + 1}
+            </div>
+
+            <div
+              style={{
+                fontSize: 11,
+                textTransform: "uppercase",
+                letterSpacing: "0.12em",
+                color: "var(--muted)",
+                fontWeight: 600,
+              }}
+            >
               {stat.label}
             </div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 34, fontWeight: 500, marginTop: 8, letterSpacing: "-0.02em" }}>
-              {stat.value}
+
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                alignItems: "baseline",
+                gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontStyle: "italic",
+                  fontSize: 46,
+                  fontWeight: 500,
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1,
+                  color: "var(--ink)",
+                }}
+              >
+                {stat.value}
+              </span>
+              {stat.unit && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: 20,
+                    fontWeight: 400,
+                    color: "var(--muted)",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {stat.unit}
+                </span>
+              )}
             </div>
-            <div style={{ position: "absolute", top: 0, right: 0, width: 3, height: "100%", background: "var(--maroon)", opacity: 0.6 }} />
+
+            {/* Maroon edge strip — thicker at top, fading to nothing */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: 3,
+                background:
+                  "linear-gradient(90deg, var(--maroon) 0%, var(--maroon) 40px, transparent 100%)",
+              }}
+            />
           </div>
         ))}
       </div>
@@ -165,12 +237,12 @@ export default async function DashboardPage() {
         </div>
 
         {todayBookings.length === 0 ? (
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
-            No bookings scheduled for today.{" "}
-            <Link href="/quotes/new" style={{ color: "var(--maroon)", textDecoration: "none" }}>
-              Create a quote →
-            </Link>
-          </p>
+          <div className="j-empty">
+            The road is quiet today.
+            <small>
+              <Link href="/quotes/new">Create a quote →</Link>
+            </small>
+          </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
@@ -223,7 +295,7 @@ export default async function DashboardPage() {
                       )}
                     </td>
                     <td style={{ padding: "10px 0" }}>
-                      <span style={{ padding: "3px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: ss.bg, color: ss.color }}>
+                      <span className="j-status" style={{ background: ss.bg, color: ss.color }}>
                         {b.status}
                       </span>
                     </td>
@@ -277,7 +349,9 @@ export default async function DashboardPage() {
           </div>
           <div style={{ padding: "4px 20px 12px" }}>
             {recentQuotes.length === 0 ? (
-              <p style={{ color: "var(--muted)", fontSize: 13, margin: "12px 0" }}>No quotes yet.</p>
+              <div className="j-empty" style={{ padding: "28px 8px" }}>
+                Nothing quoted yet.
+              </div>
             ) : (
               recentQuotes.map((q, i) => {
                 const clientName = q.client?.companyName ?? q.walkInName ?? "Walk-in";

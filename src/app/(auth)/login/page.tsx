@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export default function LoginPage() {
@@ -20,28 +21,26 @@ export default function LoginPage() {
         }}
       >
         <div style={{ width: "100%", maxWidth: 380 }}>
+          <Image
+            src="/joleo-logo.png"
+            alt="Joleo Transport"
+            width={600}
+            height={431}
+            priority
+            style={{ width: 180, height: "auto", display: "block" }}
+          />
           <div
             style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 38,
-              fontWeight: 500,
-              color: "var(--maroon)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Joleo
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              letterSpacing: "0.2em",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10.5,
+              letterSpacing: "0.24em",
               textTransform: "uppercase",
               color: "var(--muted)",
-              marginTop: 4,
-              marginBottom: 40,
+              marginTop: 14,
+              marginBottom: 44,
             }}
           >
-            Transport · Admin Portal
+            Admin Portal · Caloocan City
           </div>
 
           <div

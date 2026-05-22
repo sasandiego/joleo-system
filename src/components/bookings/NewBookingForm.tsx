@@ -99,15 +99,12 @@ export function NewBookingForm({ clients, trucks, drivers }: Props) {
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 24 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <FieldGroup label="Client">
-              <select name="clientId" style={selectStyle}>
-                <option value="">Walk-in client</option>
+              <select name="clientId" style={selectStyle} required defaultValue="">
+                <option value="" disabled>— Select client —</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.companyName}</option>
                 ))}
               </select>
-            </FieldGroup>
-            <FieldGroup label="Walk-in Name">
-              <input name="walkInName" type="text" style={inputStyle} placeholder="If no client record" />
             </FieldGroup>
             <FieldGroup label="Pick-up Point">
               <input name="pickupPoint" type="text" style={inputStyle} required placeholder="e.g. Caloocan City" />
@@ -117,6 +114,12 @@ export function NewBookingForm({ clients, trucks, drivers }: Props) {
             </FieldGroup>
             <FieldGroup label="Estimated Distance (km)">
               <input name="estimatedDistanceKm" type="number" style={inputStyle} min={1} defaultValue={50} required />
+            </FieldGroup>
+            <FieldGroup label="Billing Type">
+              <select name="tripBillingType" style={selectStyle} defaultValue="EIGHT_HOUR">
+                <option value="EIGHT_HOUR">8 Hours (local / short trips)</option>
+                <option value="PER_TRIP">Per Trip (long-distance flat rate)</option>
+              </select>
             </FieldGroup>
             <FieldGroup label="Scheduled Date">
               <input name="scheduledDate" type="date" style={inputStyle} required />

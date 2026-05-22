@@ -49,6 +49,7 @@ export async function GET(
         dropoffPoint={quote.dropoffPoint}
         routeArea={routeArea?.label ?? null}
         truckType={truckType?.label ?? null}
+        numberOfHelpers={quote.numberOfHelpers}
         pricing={pricing}
         createdAt={formatDate(quote.createdAt)}
         createdBy={quote.createdBy.username}

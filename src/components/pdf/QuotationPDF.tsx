@@ -26,7 +26,6 @@ const s = StyleSheet.create({
     color: "#1a1a1a",
   },
 
-  // ── Header ────────────────────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -41,7 +40,6 @@ const s = StyleSheet.create({
   quotationLabel: { fontSize: 12, fontWeight: 700, color: BRAND },
   quoteNo: { fontSize: 8, color: MUTED, marginTop: 2 },
 
-  // ── Section chrome ────────────────────────────────────────────────────────
   section: { marginBottom: 10 },
   sectionTitle: {
     fontSize: 6.5,
@@ -54,7 +52,6 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
 
-  // ── 2-column detail grid ──────────────────────────────────────────────────
   gridRow: {
     flexDirection: "row",
     borderBottom: "0.5pt solid #f0f0f0",
@@ -65,11 +62,9 @@ const s = StyleSheet.create({
   detailLabel: { fontSize: 7, color: MUTED, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 1 },
   detailValue: { fontSize: 9 },
 
-  // ── Bullet lists ──────────────────────────────────────────────────────────
   bulletGrid: { flexDirection: "row", flexWrap: "wrap" },
   bulletItem: { width: "50%", fontSize: 8.5, paddingVertical: 2 },
 
-  // ── Pricing summary ───────────────────────────────────────────────────────
   priceRow: { flexDirection: "row", paddingVertical: 3.5 },
   priceRowMuted: { flexDirection: "row", paddingVertical: 2.5 },
   priceLabel: { flex: 1, fontSize: 9 },
@@ -81,7 +76,6 @@ const s = StyleSheet.create({
   totalLabel: { flex: 1, fontSize: 10.5, fontWeight: 700 },
   totalValue: { fontSize: 14, color: BRAND, textAlign: "right", minWidth: 90 },
 
-  // ── Terms ─────────────────────────────────────────────────────────────────
   termsTitle: {
     fontSize: 6.5,
     fontWeight: 700,
@@ -92,7 +86,6 @@ const s = StyleSheet.create({
   },
   termsText: { fontSize: 8, color: MUTED, lineHeight: 1.6 },
 
-  // ── Footer ────────────────────────────────────────────────────────────────
   footer: {
     position: "absolute",
     bottom: 22,
@@ -116,6 +109,10 @@ function vatLabel(opt: string): string {
   return "Non-VAT";
 }
 
+function billingLabel(bt: string): string {
+  return bt === "EIGHT_HOUR" ? "8-Hour Service" : "Per-Trip Flat Rate";
+}
+
 interface QuotationPDFProps {
   quoteNo: string;
   status: string;
@@ -126,6 +123,7 @@ interface QuotationPDFProps {
   dropoffPoint: string;
   routeArea: string | null;
   truckType: string | null;
+  numberOfHelpers: number;
   pricing: PricingResult;
   createdAt: string;
   createdBy: string;
@@ -140,37 +138,40 @@ export function QuotationPDF({
   dropoffPoint,
   routeArea,
   truckType,
+  numberOfHelpers,
   pricing,
   createdAt,
   createdBy,
 }: QuotationPDFProps) {
-  const { inputsSnapshot: inp, finalPrice, vatAmount } = pricing;
-  const tollAmt =
-    pricing.lineItems.find((li) => li.code === "TOLL_AND_PARKING")?.amount ?? 0;
+  const { inputsSnapshot: inp } = pricing;
   const vatOpt = inp.vatOption;
 
-  const serviceCharge =
-    vatOpt === "VAT_EXCLUSIVE" ? finalPrice - vatAmount - tollAmt : finalPrice - tollAmt;
+  // Use effective values (back-computed if override is set) for BIR-compliant receipt
+  const effectiveVat = pricing.effectiveVatAmount;
+  const effectiveRevenue = pricing.effectiveRevenueNetOfVat;
+  const tollAmt = pricing.tollFee;
+  const finalPrice = pricing.finalPrice;
 
-  // ── Service inclusions ─────────────────────────────────────────────────
+  // Service fee (what client effectively pays for trucking, excludes toll)
+  // For display, we show: net + VAT separately (or just total inclusive)
+  const serviceFeeBeforeVat = effectiveRevenue; // net of VAT
+
   const inclusions: string[] = [
     truckType ? `Truck: ${truckType}` : "Transport Truck",
     "1 Driver (standard shift)",
-    `${inp.numberOfHelpers} Helper${inp.numberOfHelpers !== 1 ? "s" : ""}`,
-    `${inp.includedHours}-Hour Service Window`,
+    `${numberOfHelpers} Helper${numberOfHelpers !== 1 ? "s" : ""}`,
+    `Billing: ${billingLabel(inp.tripBillingType)}`,
     "Loading & Unloading",
   ];
   if (inp.condoService) inclusions.push("Condominium Handling");
   if (inp.cateringService) inclusions.push("Catering Handling");
-  if (inp.nightDelivery) inclusions.push("Night Delivery");
-  if (inp.outOfTown) inclusions.push("Out-of-Town Service");
-  if (inp.longDistance) inclusions.push("Long-Distance Transport");
+  if (pricing.isLongDistance) inclusions.push("Long-Distance Coverage");
   if (inp.additionalHelper) inclusions.push("Additional Helper");
   if (inp.numberOfDropoffs > 1) inclusions.push(`${inp.numberOfDropoffs} Drop-off Points`);
 
-  // ── Exclusions (compact labels, 2-column) ─────────────────────────────
   const exclusions: string[] = [
-    `Excess hours beyond ${inp.includedHours} included hrs`,
+    "Parking fees (paid by client at venue)",
+    "Condo / mall gate passes",
     "Packing and unpacking of items",
     "Disassembly / reassembly of furniture",
     "Fragile, hazardous, or prohibited goods",
@@ -181,7 +182,6 @@ export function QuotationPDF({
     <Document>
       <Page size="A4" style={s.page}>
 
-        {/* ── Header ── */}
         <View style={s.header}>
           <View>
             <Text style={s.brandMark}>Joleo</Text>
@@ -194,7 +194,7 @@ export function QuotationPDF({
           </View>
         </View>
 
-        {/* ── Client & Booking Details — 2-column grid ── */}
+        {/* ── Client & Booking Details ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Client & Booking Details</Text>
           {([
@@ -216,12 +216,12 @@ export function QuotationPDF({
           ))}
         </View>
 
-        {/* ── Truck & Crew — 2-column grid ── */}
+        {/* ── Truck & Crew ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Truck & Crew</Text>
           {([
-            ["Truck Selected", truckType ?? "—",  "Driver",         "1 driver included (assigned at booking)"],
-            ["Helpers",        `${inp.numberOfHelpers} helper${inp.numberOfHelpers !== 1 ? "s" : ""}`, "Included Hours", `${inp.includedHours} hrs`],
+            ["Truck Selected", truckType ?? "—", "Driver", "1 driver included (assigned at booking)"],
+            ["Helpers", `${numberOfHelpers} helper${numberOfHelpers !== 1 ? "s" : ""}`, "Billing Type", billingLabel(inp.tripBillingType)],
           ] as [string, string, string, string][]).map(([l1, v1, l2, v2]) => (
             <View key={l1} style={s.gridRow}>
               <View style={s.gridCell}>
@@ -236,7 +236,7 @@ export function QuotationPDF({
           ))}
         </View>
 
-        {/* ── Service Inclusions — 2-column bullet grid ── */}
+        {/* ── Service Inclusions ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Service Inclusions</Text>
           <View style={s.bulletGrid}>
@@ -246,7 +246,7 @@ export function QuotationPDF({
           </View>
         </View>
 
-        {/* ── Exclusions — 2-column bullet grid ── */}
+        {/* ── Exclusions ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Exclusions</Text>
           <View style={s.bulletGrid}>
@@ -261,50 +261,41 @@ export function QuotationPDF({
           <Text style={s.sectionTitle}>Pricing Summary</Text>
 
           <View style={s.priceRow}>
-            <Text style={s.priceLabel}>
-              {"Service Fee"}
-              {vatOpt === "VAT_INCLUSIVE" ? " (incl. VAT)" : vatOpt === "VAT_EXCLUSIVE" ? " (ex-VAT)" : ""}
-            </Text>
-            <Text style={s.priceValue}>{fmt(serviceCharge)}</Text>
+            <Text style={s.priceLabel}>Trucking Service Fee</Text>
+            <Text style={s.priceValue}>{fmt(serviceFeeBeforeVat)}</Text>
           </View>
 
-          <View style={s.priceRow}>
-            <Text style={s.priceLabel}>Toll & Parking</Text>
-            <Text style={s.priceValue}>{fmt(tollAmt)}</Text>
-          </View>
-
-          <View style={s.priceRowMuted}>
-            <Text style={s.priceLabelMuted}>VAT Option</Text>
-            <Text style={s.priceValueMuted}>{vatLabel(vatOpt)}</Text>
-          </View>
+          {tollAmt > 0 && (
+            <View style={s.priceRow}>
+              <Text style={s.priceLabel}>Toll Pass-through</Text>
+              <Text style={s.priceValue}>{fmt(tollAmt)}</Text>
+            </View>
+          )}
 
           <View style={s.priceRowMuted}>
-            <Text style={s.priceLabelMuted}>
-              {"VAT Amount"}
-              {vatOpt === "VAT_INCLUSIVE" ? " (included)" : vatOpt === "VAT_EXCLUSIVE" ? " (12%)" : ""}
-            </Text>
-            <Text style={s.priceValueMuted}>{vatOpt === "NON_VAT" ? "—" : fmt(vatAmount)}</Text>
+            <Text style={s.priceLabelMuted}>VAT ({vatLabel(vatOpt)})</Text>
+            <Text style={s.priceValueMuted}>{vatOpt === "NON_VAT" ? "—" : fmt(effectiveVat)}</Text>
           </View>
 
           <View style={s.priceDivider} />
           <View style={s.totalRow}>
-            <Text style={s.totalLabel}>TOTAL COST</Text>
+            <Text style={s.totalLabel}>GRAND TOTAL</Text>
             <Text style={s.totalValue}>{fmt(finalPrice)}</Text>
           </View>
         </View>
 
-        {/* ── Terms & Conditions ── */}
+        {/* ── Terms ── */}
         <View>
           <Text style={s.termsTitle}>Terms & Conditions</Text>
           <Text style={s.termsText}>
             {"•  "}This quotation is valid for 7 days from date of issue.{"\n"}
-            {"•  "}Toll and parking fees are pass-through costs subject to actual charges on the day of service.{"\n"}
-            {"•  "}Excess hours are billed at the applicable overtime rate. Final booking is subject to truck and crew availability.{"\n"}
-            {"•  "}Prices are subject to change after the validity period.
+            {"•  "}Parking fees, condo and mall gate passes are paid directly by the client.{"\n"}
+            {"•  "}Toll fees shown are pass-through estimates; actual amounts may vary by route.{"\n"}
+            {"•  "}Excess hours beyond the included service window are billed at the applicable rate.{"\n"}
+            {"•  "}Final booking is subject to truck and crew availability on the requested date.
           </Text>
         </View>
 
-        {/* ── Footer ── */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>Joleo Transport · Caloocan City</Text>
           <Text style={s.footerText}>Prepared by: {createdBy}</Text>

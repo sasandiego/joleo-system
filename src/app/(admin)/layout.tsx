@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { auth } from "@/features/auth/config";
+import { getDisplayRole } from "@/lib/user-role";
 
 export default async function AdminLayout({
   children,
@@ -18,7 +19,7 @@ export default async function AdminLayout({
         .toUpperCase()
     : "JR";
 
-  const roleLabel = "Owner · Admin";
+  const roleLabel = getDisplayRole(user?.username);
 
   return (
     <div
@@ -34,6 +35,7 @@ export default async function AdminLayout({
         userRole={roleLabel}
       />
       <main
+        data-page-enter
         style={{
           padding: "32px 40px",
           maxWidth: 1400,

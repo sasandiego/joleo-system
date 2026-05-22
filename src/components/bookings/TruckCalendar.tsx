@@ -61,18 +61,21 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
     <div>
       <PageHeader title="Truck Availability" subtitle={weekLabel}>
         <button
+          data-btn
           onClick={() => router.push(`/calendar?week=${prevWeek}`)}
           style={navBtnStyle}
         >
           ← Prev week
         </button>
         <button
+          data-btn
           onClick={() => router.push(`/calendar?week=${thisWeek}`)}
           style={navBtnStyle}
         >
           This week
         </button>
         <button
+          data-btn
           onClick={() => router.push(`/calendar?week=${nextWeek}`)}
           style={navBtnStyle}
         >
@@ -120,10 +123,13 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
         <div style={headerCellStyle} />
         {days.map((day, i) => {
           const isToday = day === today;
+          const isWeekend = i === 5 || i === 6; // Sat / Sun (Mon-start)
           const num = day.slice(8);
           return (
             <div
               key={day}
+              data-cal-today={isToday ? "true" : undefined}
+              data-cal-weekend={isWeekend && !isToday ? "true" : undefined}
               style={{
                 ...headerCellStyle,
                 borderLeft: "1px solid var(--border)",
@@ -189,8 +195,10 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
               </div>
 
               {/* Day cells */}
-              {days.map((day) => {
+              {days.map((day, di) => {
                 const booking = index[truck.id]?.[day];
+                const isToday = day === today;
+                const isWeekend = di === 5 || di === 6;
                 const cellStyle: React.CSSProperties = {
                   borderTop: "1px solid var(--border)",
                   borderLeft: "1px solid var(--border)",
@@ -202,7 +210,12 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
                 };
 
                 return (
-                  <div key={`${truck.id}-${day}`} style={cellStyle}>
+                  <div
+                    key={`${truck.id}-${day}`}
+                    data-cal-today={isToday ? "true" : undefined}
+                    data-cal-weekend={isWeekend && !isToday ? "true" : undefined}
+                    style={cellStyle}
+                  >
                     {booking && !isUnavailable && (() => {
                       const style = BOOKING_COLORS[booking.status] ?? BOOKING_COLORS.DRAFT;
                       const isDashed = booking.status === "DRAFT" || booking.status === "QUOTED";

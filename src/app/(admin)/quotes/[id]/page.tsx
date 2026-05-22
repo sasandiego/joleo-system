@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import type { PricingResult } from "@/features/pricing/types";
 import Link from "next/link";
 
@@ -21,36 +21,59 @@ export default async function QuoteDetailPage({ params }: Props) {
   });
 
   const truckType = quote?.truckTypeId
-    ? await db.truckType.findUnique({ where: { id: quote.truckTypeId }, select: { label: true } })
+    ? await db.truckType.findUnique({
+        where: { id: quote.truckTypeId },
+        select: { label: true },
+      })
     : null;
 
   if (!quote) notFound();
 
   const pricing = quote.pricingSnapshot as unknown as PricingResult;
 
+  const hasOverride = pricing.manualOverridePrice !== null && pricing.manualOverridePrice !== undefined;
+
   return (
     <div style={{ maxWidth: 960, margin: "0 auto" }}>
       <PageHeader
         title={quote.quoteNo}
-        subtitle={`${quote.status} · ${formatDate(quote.createdAt)}`}
+        subtitle={`${quote.status} · ${formatDateTime(quote.createdAt)}${quote.booking ? " · Converted" : ""}`}
       >
         <Link
           href="/quotes"
+          data-btn
           style={{
             background: "transparent",
             border: "1px solid var(--border)",
             borderRadius: 6,
             padding: "8px 16px",
             fontSize: 13,
-            color: "var(--fg)",
+            color: "var(--ink)",
             textDecoration: "none",
           }}
         >
           ← Back
         </Link>
+        <Link
+          href={`/quotes/${quote.id}/edit`}
+          data-btn
+          style={{
+            background: "transparent",
+            border: "1px solid var(--maroon)",
+            color: "var(--maroon)",
+            borderRadius: 6,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 500,
+            textDecoration: "none",
+          }}
+        >
+          Edit
+        </Link>
         <a
           href={`/api/quotes/${quote.id}/pdf`}
           target="_blank"
+          data-btn
           style={{
             background: "var(--maroon)",
             color: "white",
@@ -69,11 +92,9 @@ export default async function QuoteDetailPage({ params }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
         {/* Left: details */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Info card */}
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 16 }}>
-              Booking Information
-            </div>
+          {/* Booking info */}
+          <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+            <div style={sectionTitle}>Booking Information</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
               <DetailRow label="Client" value={quote.client?.companyName ?? quote.walkInName ?? "Walk-in"} />
               <DetailRow label="Service Type" value={quote.serviceType.replace(/_/g, " ")} />
@@ -84,31 +105,32 @@ export default async function QuoteDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Truck & crew card */}
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 16 }}>
-              Truck & Crew
-            </div>
+          {/* Truck & crew + billing */}
+          <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+            <div style={sectionTitle}>Truck, Crew & Billing</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
               <DetailRow label="Truck Type" value={truckType?.label ?? "—"} />
               <DetailRow label="Helpers" value={String(quote.numberOfHelpers)} />
+              <DetailRow
+                label="Billing Type"
+                value={quote.tripBillingType === "EIGHT_HOUR" ? "8 Hours" : "Per Trip"}
+              />
               <DetailRow label="Est. Hours" value={`${quote.estimatedHours ?? "—"} hrs`} />
             </div>
           </div>
 
-          {/* Flags */}
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 16 }}>
-              Service Flags
-            </div>
+          {/* Service flags */}
+          <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+            <div style={sectionTitle}>Service Flags</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {[
                 { label: "Condo Service", active: quote.condoService },
                 { label: "Catering", active: quote.cateringService },
-                { label: "Night Delivery", active: quote.nightDelivery },
                 { label: "Additional Helper", active: quote.additionalHelper },
-                { label: "Out of Town", active: quote.outOfTown },
-                { label: "Long Distance", active: quote.longDistance },
+                {
+                  label: `Long Distance (≥ ${pricing.ratesSnapshot?.longDistanceThresholdKm ?? 50}km)`,
+                  active: pricing.isLongDistance,
+                },
               ].map(({ label, active }) => (
                 <span
                   key={label}
@@ -117,7 +139,7 @@ export default async function QuoteDetailPage({ params }: Props) {
                     borderRadius: 20,
                     fontSize: 12,
                     fontWeight: 500,
-                    background: active ? "var(--maroon-tint)" : "var(--bg)",
+                    background: active ? "var(--maroon-tint)" : "var(--surface)",
                     color: active ? "var(--maroon)" : "var(--muted)",
                     border: "1px solid",
                     borderColor: active ? "var(--maroon)" : "var(--border)",
@@ -130,10 +152,10 @@ export default async function QuoteDetailPage({ params }: Props) {
           </div>
 
           {quote.booking && (
-            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>Converted to Booking</div>
-                <div style={{ fontWeight: 600, marginTop: 2 }}>{quote.booking.bookingNo}</div>
+                <div style={{ fontWeight: 600, marginTop: 2, fontFamily: "var(--font-mono)" }}>{quote.booking.bookingNo}</div>
               </div>
               <Link
                 href={`/bookings/${quote.booking.id}`}
@@ -145,100 +167,95 @@ export default async function QuoteDetailPage({ params }: Props) {
           )}
         </div>
 
-        {/* Right: pricing breakdown */}
+        {/* Right: pricing snapshot */}
         <div style={{ position: "sticky", top: 72 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}>
+          <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8 }}>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>Price Computation</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>Price Breakdown</div>
               <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", background: "var(--maroon-tint)", color: "var(--maroon)", padding: "3px 8px", borderRadius: 4 }}>
                 Snapshot
               </span>
             </div>
             <div style={{ padding: 20 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                 <tbody>
-                  {pricing.lineItems.filter((li) => li.amount !== 0).map((li) => (
-                    <tr key={li.code}>
-                      <td style={{ padding: "4px 0", color: "var(--fg)" }}>{li.label}</td>
-                      <td style={{ padding: "4px 0", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                        {formatCurrency(li.amount)}
-                      </td>
-                    </tr>
-                  ))}
+                  <Row label="Fuel" amount={pricing.fuelCost} />
+                  <Row label="Trip base" amount={pricing.tripBase} />
+                  {pricing.distanceCharge > 0 && <Row label="Distance charge" amount={pricing.distanceCharge} />}
+                  {pricing.otherDirectCosts.loadingUnloadingFee > 0 && (
+                    <Row label="Loading / unloading" amount={pricing.otherDirectCosts.loadingUnloadingFee} />
+                  )}
+                  {pricing.otherDirectCosts.condoFee > 0 && (
+                    <Row label="Condo handling" amount={pricing.otherDirectCosts.condoFee} />
+                  )}
+                  {pricing.otherDirectCosts.cateringFee > 0 && (
+                    <Row label="Catering handling" amount={pricing.otherDirectCosts.cateringFee} />
+                  )}
+                  {pricing.otherDirectCosts.additionalHelperFee > 0 && (
+                    <Row label="Additional helper" amount={pricing.otherDirectCosts.additionalHelperFee} />
+                  )}
+                  {pricing.otherDirectCosts.excessHoursFee > 0 && (
+                    <Row label="Excess hours" amount={pricing.otherDirectCosts.excessHoursFee} />
+                  )}
+                  {pricing.otherDirectCosts.extraDropoffsFee > 0 && (
+                    <Row label="Extra drop-offs" amount={pricing.otherDirectCosts.extraDropoffsFee} />
+                  )}
                   <tr style={{ borderTop: "2px solid var(--border)" }}>
-                    <td style={{ padding: "8px 0 4px", fontWeight: 600 }}>Direct Cost Subtotal</td>
+                    <td style={{ padding: "8px 0 4px", fontWeight: 600 }}>Base Costs</td>
                     <td style={{ padding: "8px 0 4px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(pricing.directCostSubtotal)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: "4px 0", color: "var(--muted)" }}>Overhead ({(pricing.overheadAllocation / pricing.directCostSubtotal * 100).toFixed(0)}%)</td>
-                    <td style={{ padding: "4px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(pricing.overheadAllocation)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: "4px 0", color: "var(--muted)" }}>Contingency ({(pricing.contingencyBuffer / pricing.directCostSubtotal * 100).toFixed(0)}%)</td>
-                    <td style={{ padding: "4px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(pricing.contingencyBuffer)}
-                    </td>
-                  </tr>
-                  <tr style={{ borderTop: "2px solid var(--border)" }}>
-                    <td style={{ padding: "8px 0 4px", fontWeight: 600 }}>Total Cost Before Profit</td>
-                    <td style={{ padding: "8px 0 4px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(pricing.totalCostBeforeProfit)}
+                      {formatCurrency(pricing.baseCosts)}
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, margin: "16px 0" }}>
-                {[
-                  { label: "Floor", value: pricing.floorPrice },
-                  { label: "Target", value: pricing.targetPrice },
-                  { label: "Ceiling", value: pricing.ceilingPrice },
-                ].map(({ label, value }) => (
-                  <div
-                    key={label}
-                    style={{
-                      textAlign: "center",
-                      padding: "10px 6px",
-                      border: "1px solid",
-                      borderRadius: 6,
-                      borderColor: label === "Target" ? "var(--maroon)" : "var(--border)",
-                      background: label === "Target" ? "var(--maroon-tint)" : "transparent",
-                    }}
-                  >
-                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 4 }}>
-                      {label}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: label === "Target" ? "var(--maroon)" : "var(--fg)", fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(value)}
-                    </div>
-                  </div>
-                ))}
+              <div style={{ marginTop: 12, padding: "8px 10px", background: "var(--surface)", borderRadius: 6, fontSize: 11 }}>
+                <div style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>
+                  Revenue allocations ({(pricing.markupRate * 100).toFixed(1)}% markup)
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
+                  <tbody>
+                    <Row label="Driver" amount={pricing.allocations.driver} muted />
+                    <Row label="Helper" amount={pricing.allocations.helper} muted />
+                    <Row label="Overhead" amount={pricing.allocations.overhead} muted />
+                    {pricing.isLongDistance && (
+                      <Row label="Long-distance" amount={pricing.allocations.longDistance} muted />
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, marginTop: 12 }}>
                 <tbody>
-                  {pricing.discountAmount > 0 && (
-                    <tr>
-                      <td style={{ padding: "4px 0", color: "var(--muted)" }}>Discount</td>
-                      <td style={{ padding: "4px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                        −{formatCurrency(pricing.discountAmount)}
-                      </td>
-                    </tr>
-                  )}
+                  <tr style={{ borderTop: "2px solid var(--border)" }}>
+                    <td style={{ padding: "8px 0 4px", fontWeight: 600 }}>Revenue (net of VAT)</td>
+                    <td style={{ padding: "8px 0 4px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                      {formatCurrency(pricing.revenueNetOfVat)}
+                    </td>
+                  </tr>
+                  {pricing.discountAmount > 0 && <Row label="Discount" amount={-pricing.discountAmount} muted />}
                   {pricing.vatAmount > 0 && (
+                    <Row
+                      label={`VAT (${pricing.vatOption === "VAT_INCLUSIVE" ? "inclusive" : "exclusive"}, 12%)`}
+                      amount={pricing.vatAmount}
+                      muted
+                    />
+                  )}
+                  {pricing.tollFee > 0 && (
+                    <Row label="Toll (pass-through)" amount={pricing.tollFee} muted />
+                  )}
+                  {hasOverride && (
                     <tr>
-                      <td style={{ padding: "4px 0", color: "var(--muted)" }}>VAT ({pricing.inputsSnapshot.vatOption.replace(/_/g, " ")})</td>
-                      <td style={{ padding: "4px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                        {formatCurrency(pricing.vatAmount)}
+                      <td style={{ padding: "8px 0 4px", color: "var(--muted)", textDecoration: "line-through" }}>Computed Quote</td>
+                      <td style={{ padding: "8px 0 4px", textAlign: "right", color: "var(--muted)", textDecoration: "line-through", fontVariantNumeric: "tabular-nums" }}>
+                        {formatCurrency(pricing.computedFinalPrice)}
                       </td>
                     </tr>
                   )}
                   <tr style={{ borderTop: "2px solid var(--border)" }}>
-                    <td style={{ padding: "10px 0 0", fontWeight: 700, fontSize: 15 }}>Final Quoted Price</td>
+                    <td style={{ padding: "10px 0 0", fontWeight: 700, fontSize: 15 }}>
+                      {hasOverride ? "Final (Override)" : "Final Quote"}
+                    </td>
                     <td style={{ padding: "10px 0 0", textAlign: "right", fontWeight: 700, fontSize: 15, color: "var(--maroon)", fontVariantNumeric: "tabular-nums" }}>
                       {formatCurrency(pricing.finalPrice)}
                     </td>
@@ -246,14 +263,38 @@ export default async function QuoteDetailPage({ params }: Props) {
                 </tbody>
               </table>
 
-              <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 6, fontSize: 12, background: "var(--bg)", border: "1px solid var(--border)" }}>
-                Actual margin: {(pricing.actualMarginPct * 100).toFixed(1)}% · Computed {new Date(pricing.computedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+              <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 6, fontSize: 11, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }}>
+                Snapshot computed {new Date(pricing.computedAt).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+                {quote.createdBy && (
+                  <>
+                    <br />
+                    By <strong>{quote.createdBy.username}</strong>
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function Row({ label, amount, muted }: { label: string; amount: number; muted?: boolean }) {
+  return (
+    <tr>
+      <td style={{ padding: "3px 0", color: muted ? "var(--muted)" : "var(--ink)" }}>{label}</td>
+      <td
+        style={{
+          padding: "3px 0",
+          textAlign: "right",
+          fontVariantNumeric: "tabular-nums",
+          color: muted ? "var(--muted)" : "var(--ink)",
+        }}
+      >
+        {formatCurrency(amount)}
+      </td>
+    </tr>
   );
 }
 
@@ -265,3 +306,12 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const sectionTitle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "var(--muted)",
+  marginBottom: 16,
+};

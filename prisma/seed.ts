@@ -4,16 +4,18 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 // ─── TRUCK TYPES ─────────────────────────────────────────────
-// Source: JOLEO_TRANSPORT_PRICING_MATRIX.xlsx → RATE SETTINGS sheet (MINIMUM BASE RATES section)
-// Rates confirmed from joleo_mockup.html truck masterlist table
+// Per-truck-type rates feed the new bottom-up pricing engine.
+// eightHourBaseRate: trip_base when billing type = EIGHT_HOUR (local / short trips)
+// perTripBaseRate:   trip_base when billing type = PER_TRIP (long-distance flat)
+// dailyRate / excessHourRate: retained informational fields (not consumed by engine)
 const TRUCK_TYPES = [
   {
     code: "10FT_4W",
     label: "10 Ftr - 4 Wheels",
     sizeFt: 10,
     wheelType: "4-wheel",
-    fuelKmPerLiter: 7.5,
-    minBaseRate: 2500,
+    eightHourBaseRate: 2500,
+    perTripBaseRate: 3500,
     dailyRate: 2500,
     excessHourRate: 150,
   },
@@ -22,8 +24,8 @@ const TRUCK_TYPES = [
     label: "10 Ftr - 6 Wheels",
     sizeFt: 10,
     wheelType: "6-wheel",
-    fuelKmPerLiter: 6.5,
-    minBaseRate: 3000,
+    eightHourBaseRate: 3000,
+    perTripBaseRate: 4200,
     dailyRate: 3000,
     excessHourRate: 150,
   },
@@ -32,8 +34,8 @@ const TRUCK_TYPES = [
     label: "12 Ftr - 6 Wheels",
     sizeFt: 12,
     wheelType: "6-wheel",
-    fuelKmPerLiter: 6.0,
-    minBaseRate: 3500,
+    eightHourBaseRate: 3500,
+    perTripBaseRate: 4900,
     dailyRate: 3500,
     excessHourRate: 175,
   },
@@ -42,8 +44,8 @@ const TRUCK_TYPES = [
     label: "14 Ftr - 6 Wheels",
     sizeFt: 14,
     wheelType: "6-wheel",
-    fuelKmPerLiter: 5.0,
-    minBaseRate: 4500,
+    eightHourBaseRate: 4500,
+    perTripBaseRate: 6300,
     dailyRate: 4500,
     excessHourRate: 200,
   },
@@ -52,8 +54,8 @@ const TRUCK_TYPES = [
     label: "16 Ftr - 6 Wheels",
     sizeFt: 16,
     wheelType: "6-wheel",
-    fuelKmPerLiter: 4.5,
-    minBaseRate: 6000,
+    eightHourBaseRate: 6000,
+    perTripBaseRate: 8400,
     dailyRate: 6000,
     excessHourRate: 250,
   },
@@ -62,8 +64,8 @@ const TRUCK_TYPES = [
     label: "20 Ftr - 6 Wheels",
     sizeFt: 20,
     wheelType: "6-wheel",
-    fuelKmPerLiter: 3.5,
-    minBaseRate: 8000,
+    eightHourBaseRate: 8000,
+    perTripBaseRate: 11200,
     dailyRate: 8000,
     excessHourRate: 300,
   },
@@ -72,8 +74,8 @@ const TRUCK_TYPES = [
     label: "16 Ftr - Dropside",
     sizeFt: 16,
     wheelType: "6-wheel",
-    fuelKmPerLiter: 4.5,
-    minBaseRate: 5000,
+    eightHourBaseRate: 5000,
+    perTripBaseRate: 7000,
     dailyRate: 5000,
     excessHourRate: 250,
   },
@@ -270,35 +272,40 @@ const CLIENTS = [
   },
 ] as const;
 
-// ─── RATE SETTINGS ────────────────────────────────────────────
-// Source: JOLEO_TRANSPORT_PRICING_MATRIX.xlsx → RATE SETTINGS sheet
-// Singleton row — id is always 1
+// ─── RATE SETTINGS (Pricing Config) ───────────────────────────
+// Singleton row — id is always 1. Values from Joleo_Update_Guide.md Section C.
 const RATE_SETTINGS = {
   id: 1,
+
+  // Labor markups (percentage of Revenue Net of VAT)
+  driverRate: 0.15,
+  helperRate: 0.075,
+
+  // Overhead & surcharges
+  overheadRate: 0.05,
+  longDistanceRate: 0.05,
+  longDistanceThresholdKm: 50,
+
+  // Fuel config
   dieselPricePerLiter: 70.0,
-  fuelSurchargePct: 0.05,
-  driverDailyRate: 800,
-  driverOtRate: 150,
-  helperDailyRate: 600,
-  helperOtRate: 100,
+  fuelFloor: 500,
+  fuelEfficiencyKmpl: 5.0,
+
+  // Add-on rates (added to direct costs when triggered)
   additionalHelperRate: 600,
-  standardIncludedHours: 8,
   additionalHourRate: 350,
   additionalDropoffCharge: 300,
+  standardIncludedHours: 8,
+
+  // Special service fees
   condoHandlingFee: 500,
   cateringHandlingFee: 400,
   loadingUnloadingFee: 0,
-  nightDeliverySurcharge: 500,
-  waitingTimeChargePerHr: 200,
-  outOfTownSurcharge: 500,
-  longDistanceSurcharge: 1500,
+
+  // Distance
   distanceRatePerKm: 12,
-  maintenancePctOfBase: 0.08,
-  overheadPctOfDirect: 0.10,
-  contingencyPctOfDirect: 0.03,
-  floorMarginPct: 0.15,
-  targetMarginPct: 0.25,
-  ceilingMarginPct: 0.40,
+
+  // Tax (locked by BIR)
   vatRate: 0.12,
 } as const;
 
@@ -315,8 +322,8 @@ async function main() {
         label: tt.label,
         sizeFt: tt.sizeFt,
         wheelType: tt.wheelType,
-        fuelKmPerLiter: tt.fuelKmPerLiter,
-        minBaseRate: tt.minBaseRate,
+        eightHourBaseRate: tt.eightHourBaseRate,
+        perTripBaseRate: tt.perTripBaseRate,
         dailyRate: tt.dailyRate,
         excessHourRate: tt.excessHourRate,
       },
@@ -325,8 +332,8 @@ async function main() {
         label: tt.label,
         sizeFt: tt.sizeFt,
         wheelType: tt.wheelType,
-        fuelKmPerLiter: tt.fuelKmPerLiter,
-        minBaseRate: tt.minBaseRate,
+        eightHourBaseRate: tt.eightHourBaseRate,
+        perTripBaseRate: tt.perTripBaseRate,
         dailyRate: tt.dailyRate,
         excessHourRate: tt.excessHourRate,
       },

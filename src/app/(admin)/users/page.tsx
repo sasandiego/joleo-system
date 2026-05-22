@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/features/auth/config";
 import { ResetPasswordDialog } from "@/components/users/ResetPasswordDialog";
+import { getDisplayRole } from "@/lib/user-role";
 
 export default async function UsersPage() {
   const session = await auth();
@@ -114,19 +115,25 @@ export default async function UsersPage() {
                     {user.username}
                   </td>
                   <td style={{ padding: "14px 24px" }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "3px 9px",
-                        borderRadius: 999,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        background: "var(--maroon-tint)",
-                        color: "var(--maroon)",
-                      }}
-                    >
-                      {"Admin"}
-                    </span>
+                    {(() => {
+                      const displayRole = getDisplayRole(user.username);
+                      const isOwner = displayRole === "Owner";
+                      return (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 9px",
+                            borderRadius: 999,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            background: isOwner ? "var(--maroon)" : "var(--maroon-tint)",
+                            color: isOwner ? "white" : "var(--maroon)",
+                          }}
+                        >
+                          {displayRole}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td style={{ padding: "14px 24px" }}>
                     <span

@@ -58,6 +58,79 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Subtle paper grain on the workspace surface — gives Fraunces something to sit on.
+   SVG noise data URI; ~2KB, no extra HTTP request, GPU-cheap. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.40 0 0 0 0 0.38 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Focus ring — visible only for keyboard users (focus-visible).
+   Maroon halo at low alpha; consistent across inputs, buttons, links. */
+:focus-visible {
+  outline: 2px solid var(--maroon);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Table row hover — applies to any tbody tr in the app.
+   The transition lives here so component-level inline styles don't need to change. */
+tbody tr {
+  transition: background 0.14s ease;
+}
+tbody tr:hover {
+  background: rgba(123, 30, 46, 0.025);
+}
+
+/* Page-load reveal — main content fades up once on entry.
+   Keyed off [data-page-enter] to avoid affecting modals/portals. */
+@keyframes joleo-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-page-enter] {
+  animation: joleo-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Stagger any direct children of a page-enter container, up to 6 deep.
+   Cards, tables, and headers reveal in sequence — feels considered, not scripted. */
+[data-page-enter] > *:nth-child(1) { animation-delay: 0ms; }
+[data-page-enter] > *:nth-child(2) { animation-delay: 60ms; }
+[data-page-enter] > *:nth-child(3) { animation-delay: 120ms; }
+[data-page-enter] > *:nth-child(4) { animation-delay: 180ms; }
+[data-page-enter] > *:nth-child(5) { animation-delay: 240ms; }
+[data-page-enter] > *:nth-child(6) { animation-delay: 300ms; }
+[data-page-enter] > * {
+  animation: joleo-rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-page-enter],
+  [data-page-enter] > *,
+  tbody tr {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .display-font {
   font-family: 'Fraunces', serif;
   font-weight: 500;
@@ -97,3 +170,94 @@ body {
 .badge-danger  { background: #FDECEA; color: var(--danger); }
 .badge-maroon  { background: var(--maroon-tint); color: var(--maroon); }
 .badge-neutral { background: #F4F4F4; color: var(--muted); }
+
+/* ============================================================
+   TIER 2 + 3 polish
+   ============================================================ */
+
+/* Button polish — applies to any element with class "btn" or
+   to any <button>/<a> tagged via [data-btn]. We don't restyle
+   the visual (background/color) here, only the interaction
+   behavior, so it overlays on top of existing inline styles. */
+.btn,
+[data-btn] {
+  transition: box-shadow 0.18s ease, transform 0.06s ease, filter 0.18s ease;
+  cursor: pointer;
+}
+.btn:hover,
+[data-btn]:hover {
+  box-shadow: 0 4px 14px rgba(123, 30, 46, 0.16);
+  filter: brightness(1.04);
+}
+.btn:active,
+[data-btn]:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Status badge upgrade — mono font, generous tracking,
+   "instrument panel" feel matching the trucking context. */
+.j-status {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+/* Empty-state editorial treatment — Fraunces italic, generous space. */
+.j-empty {
+  padding: 48px 28px;
+  text-align: center;
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+}
+.j-empty small {
+  display: block;
+  margin-top: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-style: normal;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.j-empty a {
+  color: var(--maroon);
+  text-decoration: none;
+  font-style: italic;
+}
+
+/* Stat-card hover — adds a touch of life to the dashboard tiles
+   without changing layout. Detected via data attribute. */
+[data-stat-card] {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+[data-stat-card]:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Calendar today-column indicator — every cell with this attr
+   gets a maroon inset left edge, creating a continuous vertical
+   hairline running down today's column. */
+[data-cal-today="true"] {
+  box-shadow: inset 2px 0 0 var(--maroon);
+}
+
+[data-cal-weekend="true"] {
+  background-image: linear-gradient(
+    rgba(0, 0, 0, 0.018),
+    rgba(0, 0, 0, 0.018)
+  );
+}

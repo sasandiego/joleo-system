@@ -183,11 +183,11 @@ export async function updateBookingAssignmentAction(
 // ── Create standalone booking (not from quote) ────────────────────────────────
 
 const createBookingSchema = z.object({
-  clientId: z.string().optional(),
-  walkInName: z.string().optional(),
+  clientId: z.string().min(1, "Please select a client. Create a client profile first if needed."),
   pickupPoint: z.string().min(1, "Pick-up point is required"),
   dropoffPoint: z.string().min(1, "Drop-off point is required"),
   estimatedDistanceKm: z.coerce.number().int().min(1),
+  tripBillingType: z.enum(["EIGHT_HOUR", "PER_TRIP"]).default("EIGHT_HOUR"),
   scheduledDate: z.string().min(1, "Scheduled date is required"),
   truckId: z.string().optional(),
   driverId: z.string().optional(),
@@ -237,12 +237,12 @@ export async function createBookingAction(
       data: {
         bookingNo,
         status: "DRAFT",
-        clientId: data.clientId ?? null,
-        walkInName: data.walkInName ?? null,
+        clientId: data.clientId,
         scheduledDate,
         pickupPoint: data.pickupPoint,
         dropoffPoint: data.dropoffPoint,
         estimatedDistanceKm: data.estimatedDistanceKm,
+        tripBillingType: data.tripBillingType,
         truckId: data.truckId ?? null,
         driverId: data.driverId ?? null,
         quotedAmount: new Decimal(data.quotedAmount),

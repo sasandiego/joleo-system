@@ -1,14 +1,14 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-20 (post-M10 polish complete)
+Last updated: 2026-05-22 (6-phase pricing engine refactor complete)
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
 - Next.js 15.5 App Router scaffolded (manual, no create-next-app)
 - Tailwind v4 configured (CSS-based, no tailwind.config.js)
 - Brand CSS variables + @theme tokens applied in globals.css
-- Fraunces / DM Sans / JetBrains Mono fonts loaded via next/font/google
+- Fraunces / DM Sans / JetBrains Mono fonts loaded via Google Fonts CDN (not next/font)
 - Prisma 6 schema complete (all models, enums, indexes)
 - Prisma client generated
 - Sidebar component — all 3 sections, nav-dot active state, brand mark, footer
@@ -31,79 +31,99 @@ Last updated: 2026-05-20 (post-M10 polish complete)
 - All server actions: Zod validation, upsert, P2002 handling, revalidatePath
 - Decimal serialization at server/client boundary (.toNumber() in page components)
 
-### M4 — Rate Settings
-- Single-form page, all 25 RateSettings fields in 6 sections
-- VAT rate readonly; pct fields stored as fractions, displayed × 100
-- Save → AuditLog with before/after snapshot; View change log dialog
-- README updated with full NUCBox setup + Cloudflare Tunnel guide
+### M4 — Rate Settings → Pricing Config (replaced 2026-05-22)
+- Original: single-form page, 25 RateSettings fields, pct as fractions, AuditLog on save
+- **Replaced by Pricing Config UI** — 6 sections, live preview panel, markup validator, save/reset/audit-log modals
+- `/rate-settings` redirects to `/pricing-config` (no broken bookmarks)
+- VAT rate still readonly (12%, locked)
 
 ### M5 — Pricing Engine ⭐
-- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, LineItem, PricingWarning
-- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx)`, all Decimal.js, no DB access
-- 16 computation steps (truck base rate through maintenance allowance)
-- Overhead (10%) + contingency (3%) on direct cost; floor/target/ceiling margin prices
-- VAT_INCLUSIVE / VAT_EXCLUSIVE / NON_VAT handling
-- 3 warnings: PRICE_VS_FLOOR, JOB_HOURS, PROFIT_MARGIN
-- `src/features/pricing/engine.test.ts` — 8 test cases, **41/41 tests pass**
-- Key correction: Excel had broken cell refs for steps 1 & 16 (both showed 0)
-  Engine includes both — corrected V6 reference target = ₱18,532 (not ₱11,209.60)
-- `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
+- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, BillingType, revenue allocation fields
+- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx)`, bottom-up revenue model, no DB access
+- Bottom-up formula: `revenue_net_of_vat = base_costs / (1 - markup_total)`
+- Fuel: `MAX(fuelFloor, distance × 2 / efficiency × price)`; toll added after markup (true pass-through)
+- VAT_INCLUSIVE / VAT_EXCLUSIVE / NON_VAT handling; manual override back-computes effectiveVatAmount
+- `src/features/pricing/engine.test.ts` — 30 test cases, **30/30 pass** (worked example ₱5,932.14, fuel floor, long-distance, billing types, VAT modes, toll, discount, override, service flags, snapshot integrity)
+- `pnpm exec tsc --noEmit` ✅ clean | `pnpm test --run` ✅ 30/30
 
 ### M6 — Quote Builder ⭐
-- `src/actions/quotes.ts` — saveQuoteAction: QT number gen, computePrice, Quote + optional Booking
+- `src/actions/quotes.ts` — saveQuoteAction, updateQuoteAction (QUOTE_UPDATED audit log), convertToBookingAction
 - `src/app/(admin)/quotes/page.tsx` — list page with status badges + "New Quote" button
-- `src/app/(admin)/quotes/new/page.tsx` — server page loads context (clients/truckTypes/routeAreas/settings)
-- `src/app/(admin)/quotes/[id]/page.tsx` — detail view: info + flags + pricingSnapshot breakdown + PDF link
-- `src/components/quotes/QuoteBuilderForm.tsx` — two-column form, useMemo live pricing (no server round-trip)
-- `src/components/quotes/PriceBreakdownPanel.tsx` — live breakdown: line items + tier grid (Floor/Target/Ceiling) + warnings
-- `src/components/pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 quotation document
-- `src/app/api/quotes/[id]/pdf/route.tsx` — PDF download route (auth-guarded)
-- `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
+- `src/app/(admin)/quotes/new/page.tsx` — server page loads context
+- `src/app/(admin)/quotes/[id]/page.tsx` — detail: info + flags + pricingSnapshot breakdown + Edit + PDF buttons
+- `src/app/(admin)/quotes/[id]/edit/page.tsx` — quote editor; reuses QuoteBuilderForm with pre-filled values
+- `src/components/quotes/QuoteBuilderForm.tsx` — billing type toggle, auto long-distance hint, manual override price, service-flag dropdowns with inline ₱ amounts
+- `src/components/quotes/PriceBreakdownPanel.tsx` — base components → revenue allocations → revenue/VAT/toll → final
 
 ### M7 — Bookings + Calendar ⭐
 - `src/features/booking/state-machine.ts` — FSM with `canTransition()`, `BookingTransitionError`, `BookingConflictError`
-- `src/actions/bookings.ts` — `transitionBookingAction` (validates FSM, conflict check, audit log), `updateBookingAssignmentAction`, `createBookingAction`
-- `/bookings` — list with search + status filter, truck pill badges, status badges
-- `/bookings/new` — standalone booking form
-- `/bookings/[id]` — assignment form (truck/driver/helpers/date/time) + status transition buttons
-- `/calendar` — week grid (trucks × days), color-coded booking blocks, week nav via URL `?week=`
-- `pnpm build` ✅ clean | `pnpm test` ✅ 41/41 | Committed + pushed
+- `src/actions/bookings.ts` — `transitionBookingAction`, `updateBookingAssignmentAction`, `createBookingAction`
+- `/bookings` — list with search + status filter
+- `/bookings/new` — standalone booking form with billing type dropdown
+- `/bookings/[id]` — assignment form + status transitions + billing type display
+- `/calendar` — week grid, color-coded booking blocks, week nav via URL `?week=`
 
 ### M8 — Dashboard ⭐
 - `/dashboard` — live stat cards (Active Bookings, Fleet Active, Quotes MTD, Revenue MTD)
-- Today's Schedule table with real booking data
-- `pnpm build` ✅ clean | Committed + pushed
+- Today's Schedule, Fleet Status card, Recent Quotes card, 2-col split layout
 
 ### M9 — Dockerize + Deploy
-- Already complete from M1 (`docker-compose.yml`, `Dockerfile`, `docker/Caddyfile`, Cloudflare Tunnel config)
+- `docker-compose.yml`, `Dockerfile`, `docker/Caddyfile`, Cloudflare Tunnel config
 - `output: "standalone"` in `next.config.ts`
 
 ### M10 — Polish + Testing
 - `TEST_GUIDE.md` — full manual testing walkthrough for all Phase 1 features
 
 ### Post-M10 polish (2026-05-20)
-- **Dashboard mockup parity** — added Fleet Status card (Active/Under Repair/Inactive truck counts via `db.truck.groupBy`), Recent Quotes card (latest 3, client · pickup → dropoff · ₱amount), "+ New Quote" header button, 2-col split layout (Today's Schedule left, Fleet+Quotes right). `src/app/(admin)/dashboard/page.tsx`.
-- **TruckCalendar React key warning fixed** — replaced `<></>` shorthand inside `.map()` with `<Fragment key={truck.id}>` (shorthand fragments can't carry a key). `src/components/bookings/TruckCalendar.tsx`.
-- **Fonts: Google Fonts CDN swap** — replaced `next/font/google` with literal `<link>` tags in `<head>`, matching `build-guide/joleo_mockup.html` exactly. `globals.css` CSS vars now resolve to literal font names. Added `.display-font` and `.mono` utility classes. `src/app/layout.tsx`, `src/app/globals.css`.
-- **Favicons** — generated `icon.png` (32×32) and `apple-icon.png` (180×180) from the truck logo in `docs/`. Trimmed white border via `sharp().trim()`. Next.js App Router auto-wires both into `<head>`.
-- **middleware.ts matcher updated** — excludes `icon.png` and `apple-icon.png` so the auth guard doesn't 307-redirect them.
-- **Public URL live** — `https://joleo.sas-agent.co.uk` via Cloudflare tunnel (Nucbox cloudflared, tunnel ID `bda80536-...`). CNAME added via Cloudflare dashboard (cert.pem on Nucbox isn't authorized for sas-agent.co.uk zone). `/etc/cloudflared/config.yml` ingress entry added at top.
-- **NEXTAUTH_URL** set to `https://joleo.sas-agent.co.uk` in `.env.local` so post-login callbacks resolve correctly.
-- **pnpm-workspace.yaml** — `allowBuilds:` block with booleans (`@prisma/client`, `@prisma/engines`, `esbuild`, `prisma`, `sharp`, `unrs-resolver`), required by pnpm 11 to run postinstall scripts.
-- `pnpm exec tsc --noEmit` ✅ clean | `pnpm test --run` ✅ 41/41 | Code review via `/code-review` found no actionable issues (only finding was below 80 confidence threshold).
-- **PDF redesigned as client-facing document** — removed internal cost breakdown (line items, overhead, tier grid). Now 7 sections: Client & Booking Details (2-col grid), Truck & Crew (2-col grid), Service Inclusions, Exclusions, Pricing Summary (service fee + toll + VAT option + VAT amount + total), Terms & Conditions. `src/components/pdf/QuotationPDF.tsx`.
-- **₱ glyph fix** — Helvetica/Roboto/Noto lacked U+20B1; copied DejaVu Sans Regular + Bold to `public/fonts/`, registered via `path.resolve(process.cwd(), ...)`. Amount strings use Regular weight (Bold lacks ₱).
-- **PDF 1-page layout** — switched Client & Booking Details to 4 two-column grid rows (was 8 stacked rows); same for Truck & Crew; tightened all spacing.
-- **React import fix** — added `import React from "react"` to `QuotationPDF.tsx`; required by @react-pdf/renderer v4 custom reconciler.
-- **PDF route error logging** — try-catch wraps `renderToBuffer`; returns actual error text on 500 to aid ISE debugging. `src/app/api/quotes/[id]/pdf/route.tsx`.
+- **Dashboard mockup parity** — Fleet Status card, Recent Quotes card, 2-col layout
+- **TruckCalendar React key fix** — `<Fragment key={truck.id}>` replacing shorthand
+- **Fonts: Google Fonts CDN swap** — literal `<link>` tags, CSS vars to literal font names
+- **Favicons** — `icon.png` (32×32) + `apple-icon.png` (180×180) from truck logo via sharp
+- **middleware.ts matcher** — excludes `icon.png` and `apple-icon.png`
+- **Public URL live** — `https://joleo.sas-agent.co.uk` via Cloudflare tunnel
+- **NEXTAUTH_URL** set to public hostname in `.env.local`
+- **pnpm-workspace.yaml** — `allowBuilds:` with booleans for pnpm 11
+- **PDF redesigned** — client-facing document, DejaVu Sans for ₱, 1-page compact layout, explicit React import
+
+### Post-M10 pricing engine refactor (2026-05-22) ⭐
+**Phase 1 — Schema migration** (`20260522085840_pricing_engine_refactor`)
+- New `BillingType` enum: `EIGHT_HOUR | PER_TRIP`
+- `TruckType`: dropped `minBaseRate`+`fuelKmPerLiter`, added `eightHourBaseRate`+`perTripBaseRate`
+- `RateSettings`: dropped 14 obsolete fields, added 7 new ones (driverRate, helperRate, overheadRate, longDistanceRate, longDistanceThresholdKm, fuelFloor, fuelEfficiencyKmpl)
+- `Quote` + `Booking`: dropped nightDelivery/outOfTown/longDistance/parkingFee flags, added `tripBillingType`
+- Seed updated with new defaults
+
+**Phase 2 — Pricing engine** (bottom-up revenue model)
+- 30 tests replacing old 41 — full coverage of new formula
+- Long-distance auto-derived from distance threshold; toll is a true pass-through; manual override is BIR-compliant
+
+**Phase 3 — Pricing Config UI** (`/pricing-config`)
+- 6 sections + live preview panel (runs actual engine) + fuel-floor breakeven hint
+- Markup-sum validator, save/reset confirmation modals, audit log modal (last 10 changes)
+- `/rate-settings` → redirects; sidebar renamed
+
+**Phase 4 — Quote Builder + Editor**
+- Removed: Night Delivery, Out-of-Town, Long Distance toggle, Parking Fee, Included Hours fields
+- Added: BillingType pill toggle, auto long-distance badge, Manual Override Price field
+- Service flag dropdowns show inline ₱ amounts
+- New `/quotes/[id]/edit` route; `updateQuoteAction` with audit log
+
+**Phase 5 — Quote detail + Bookings**
+- PriceBreakdownPanel rebuilt for new shape; "Edit" button on detail; Service Flags row updated
+- Billing Type shown in Truck & Crew section, NewBookingForm dropdown, Booking detail
+
+**Phase 6 — PDF + cleanup**
+- 4-line pricing summary (Service Fee → Toll → VAT → GRAND TOTAL)
+- Uses `effectiveVatAmount`/`effectiveRevenueNetOfVat` for BIR-compliant override math
+- Exclusions list updated; billing type shown in inclusions
+- Files: 4 created, 6 rewritten, 11 modified, 2 deleted (actions/rate-settings.ts, RateSettingsForm.tsx)
 
 ## 🧪 Experimental (treat as fragile)
 _(none)_
 
 ## 🚫 Known Issues (Deprioritized)
-- ~~favicon.ico missing → 404 in browser console~~ — resolved 2026-05-20 (`src/app/icon.png` + `src/app/apple-icon.png`)
 - AUTH_TRUST_HOST=true in .env.local — dev server port no longer matters
-- **PDF ISE** — `/api/quotes/[id]/pdf` returns 500 in Next.js context; tsx render test passes (27 KB). Try-catch in place to surface actual error on next download attempt.
+- **Joleo_Update_Guide.md** — worked-example ₱ figure is outdated; correct value is ₱5,932.14 (confirmed by engine tests). Guide doc not yet updated.
 
 ## Milestone Status
 | # | Milestone | Status |
@@ -111,10 +131,11 @@ _(none)_
 | M1 | Foundation | ✅ Complete |
 | M2 | Auth + Users | ✅ Complete |
 | M3 | Masterlists CRUD | ✅ Complete |
-| M4 | Rate Settings | ✅ Complete |
+| M4 | Rate Settings → Pricing Config | ✅ Complete |
 | M5 | Pricing Engine | ✅ Complete |
-| M6 | Quote Builder | ✅ Complete |
+| M6 | Quote Builder + Editor | ✅ Complete |
 | M7 | Bookings + Calendar | ✅ Complete |
 | M8 | Dashboard | ✅ Complete |
 | M9 | Dockerize + Deploy | ✅ Complete |
 | M10 | Polish + Testing | ✅ Complete |
+| — | Pricing Engine Refactor (6-phase) | ✅ Complete |

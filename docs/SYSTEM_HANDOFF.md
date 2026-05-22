@@ -1,16 +1,14 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-20 — PDF redesign: client-facing quotation with 7 sections, DejaVu Sans for ₱ glyph, 1-page compact layout; ISE debug in progress
+2026-05-22 — 6-phase pricing engine refactor complete: new BillingType, bottom-up revenue formula, Pricing Config UI, Quote Builder/Editor updates, PDF cleanup, migration applied
 
 ## Current System State
-Next.js 15.5 app, `pnpm build` clean, `pnpm test` 41/41 green. All Phase 1 milestones (M1–M10) complete and pushed to GitHub (`main`). Full feature set: auth, masterlists CRUD, rate settings, pricing engine, quote builder + PDF, bookings with FSM, truck availability calendar, live dashboard. Login with `jess` / `admin123` (or credentials in `.env.local`).
+Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green. All Phase 1 milestones (M1–M10) complete + 6-phase pricing engine refactor complete, all on `main`. Full feature set: auth, masterlists CRUD, pricing config, pricing engine (bottom-up revenue model), quote builder + editor + PDF, bookings with FSM, truck availability calendar, live dashboard. Login with `jess` / `admin123` (or credentials in `.env.local`).
 
 **Public URL:** `https://joleo.sas-agent.co.uk` (via the existing Nucbox cloudflared tunnel, ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`). Dev server bound to `*:3000`, accessible via LAN (`192.168.254.166`), Tailscale (`100.87.42.111`), and the public hostname. `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` set in `.env.local` so post-login redirects resolve correctly.
 
 **Phase 1 is complete. Phase 2 (customer-facing portal) is parked.**
-
-PDF quotation route (`/api/quotes/[id]/pdf`) redesigned as a client-facing document this session. Try-catch added to route to surface actual error message; ISE root cause not yet confirmed resolved in Next.js context.
 
 ---
 
@@ -20,22 +18,24 @@ PDF quotation route (`/api/quotes/[id]/pdf`) redesigned as a client-facing docum
 - `(auth)/login/page.tsx` — two-column mockup layout, LoginForm client component
 - `api/auth/[...nextauth]/route.ts` — Auth.js handlers
 - `(admin)/layout.tsx` — grid: 240px Sidebar + main; reads session from auth()
-- `(admin)/dashboard/page.tsx` — stub stat card placeholders
+- `(admin)/dashboard/page.tsx` — live stat cards, today's schedule, fleet status, recent quotes
 - `(admin)/trucks/page.tsx` — trucks list, includes truckType
 - `(admin)/drivers/page.tsx` — serializes dailyRate/otRate .toNumber()
 - `(admin)/helpers/page.tsx` — serializes dailyRate/otRate .toNumber()
 - `(admin)/clients/page.tsx` — no Decimal fields
 - `(admin)/route-areas/page.tsx` — serializes surcharge/estimatedToll .toNumber()
-- `(admin)/rate-settings/page.tsx` — serializes all Decimals + pct × 100 for display
+- `(admin)/pricing-config/page.tsx` — Pricing Config UI (6 sections + live preview + audit log); replaces rate-settings
+- `(admin)/rate-settings/page.tsx` — redirects to /pricing-config (keeps old bookmarks working)
 - `(admin)/users/page.tsx` — users list, no Decimals
 - `(admin)/quotes/page.tsx` — quotes list, serializes finalPrice .toNumber()
 - `(admin)/quotes/new/page.tsx` — loads clients/truckTypes/routeAreas/settings, serializes all Decimals
-- `(admin)/quotes/[id]/page.tsx` — quote detail with pricingSnapshot breakdown + Download PDF link
+- `(admin)/quotes/[id]/page.tsx` — quote detail with pricingSnapshot breakdown + Edit + Download PDF buttons
+- `(admin)/quotes/[id]/edit/page.tsx` — quote editor; reuses QuoteBuilderForm with pre-filled values
 - `(admin)/bookings/page.tsx` — bookings list, includes client/truck/driver/quote
 - `(admin)/bookings/new/page.tsx` — standalone booking creation form
 - `(admin)/bookings/[id]/page.tsx` — booking detail with assignment form + status transitions
 - `(admin)/calendar/page.tsx` — week grid; `?week=YYYY-MM-DD` param; loads trucks + bookings for week
-- `(admin)/dashboard/page.tsx` — live stats + today's schedule + Fleet Status card (Active/Under Repair/Inactive via `db.truck.groupBy`) + Recent Quotes card (latest 3) + "+ New Quote" header button + 2-col split layout
+- `(admin)/dashboard/page.tsx` — live stats + today's schedule + Fleet Status card + Recent Quotes card + 2-col split layout
 
 ### Top-level app files (`src/app/`)
 - `icon.png` — 32×32 favicon (generated from `docs/356378784_*.jpg` via sharp + trim)
@@ -44,45 +44,49 @@ PDF quotation route (`/api/quotes/[id]/pdf`) redesigned as a client-facing docum
 - `globals.css` — CSS vars resolve to literal `'Fraunces'` / `'DM Sans'` / `'JetBrains Mono'`; `.display-font` and `.mono` utility classes added
 
 ### Components (`src/components/`)
-- `layout/Sidebar.tsx` — nav-dot items, "Transport · Admin", active state via usePathname
+- `layout/Sidebar.tsx` — nav-dot items, "Transport · Admin", active state via usePathname; nav label is "Pricing Config"
 - `layout/PageHeader.tsx` — reusable page header
 - `auth/LoginForm.tsx` — useActionState + useFormStatus
 - `users/ResetPasswordDialog.tsx` — Radix Dialog
 - `trucks/`, `drivers/`, `helpers/`, `clients/`, `route-areas/` — ListClient + Dialog per entity
-- `rate-settings/RateSettingsForm.tsx` — full settings form + change log dialog
+- `pricing-config/PricingConfigForm.tsx` — 6-section pricing config form with live preview panel, markup validator, save/reset/audit-log modals
 - `quotes/QuoteListClient.tsx` — quotes table with status badges
-- `quotes/QuoteBuilderForm.tsx` — client component: useState all fields, useMemo live pricing
-- `quotes/PriceBreakdownPanel.tsx` — live breakdown panel: line items + tier grid + warnings
-- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document
+- `quotes/QuoteBuilderForm.tsx` — client component: billing type toggle, auto long-distance hint, manual override price, service-flag dropdowns with inline ₱ amounts
+- `quotes/PriceBreakdownPanel.tsx` — new shape: base components → revenue allocations → revenue/VAT/toll → final (override row when applicable)
+- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document; 4-line pricing summary; uses effectiveVatAmount/effectiveRevenueNetOfVat; billing type in inclusions
 - `bookings/BookingListClient.tsx` — filterable bookings table (search, status, date)
-- `bookings/BookingDetailClient.tsx` — assignment form + FSM status transitions
-- `bookings/NewBookingForm.tsx` — standalone booking creation
+- `bookings/BookingDetailClient.tsx` — assignment form + FSM status transitions + billing type display
+- `bookings/NewBookingForm.tsx` — standalone booking creation with billing type dropdown
 - `bookings/TruckCalendar.tsx` — week grid with booking blocks and unavailable stripes
 
 ### Actions (`src/actions/`)
 - `auth.ts` — loginAction, signOutAction
 - `users.ts` — resetPasswordAction
 - `trucks.ts`, `drivers.ts`, `helpers.ts`, `clients.ts`, `route-areas.ts` — upsert actions
-- `rate-settings.ts` — updateRateSettingsAction (AuditLog with before/after)
-- `quotes.ts` — saveQuoteAction (QT number gen, computePrice, Quote + optional Booking creation)
+- `pricing-config.ts` — updatePricingConfigAction (AuditLog with before/after), resetToDefaultsAction
+- `quotes.ts` — saveQuoteAction (QT number gen, computePrice, Quote creation), updateQuoteAction (QUOTE_UPDATED audit log), convertToBookingAction
 - `bookings.ts` — transitionBookingAction (FSM + conflict check + audit), updateBookingAssignmentAction, createBookingAction
 
 ### Features
 - `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma)
 - `src/features/auth/config.ts` — full NextAuth config with bcryptjs + Prisma
-- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, LineItem, PricingWarning
-- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx): PricingResult`
-- `src/features/pricing/engine.test.ts` — 8 test cases, 41 assertions
+- `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, BillingType, revenue allocation fields
+- `src/features/pricing/engine.ts` — pure `computePrice(input, ctx): PricingResult`; bottom-up revenue model
+- `src/features/pricing/engine.test.ts` — 30 test cases covering worked example, fuel floor, long-distance, billing types, VAT modes, toll, discount, override, service flags, snapshot integrity
 - `src/features/booking/state-machine.ts` — DRAFT→QUOTED→CONFIRMED→DISPATCHED→COMPLETED / CANCELLED FSM
 
 ### Lib
 - `src/lib/db.ts`, `env.ts`, `format.ts`, `utils.ts`
+- `src/lib/user-role.ts` — maps username → display role (shem/vyela → Owner, gina → Admin)
 - `src/middleware.ts` — auth guard via edge config; matcher excludes `_next/static`, `_next/image`, `favicon.ico`, `icon.png`, `apple-icon.png`
 - `src/types/next-auth.d.ts` — session/user/JWT type augmentation
 
 ### Schema models
-- User, TruckType, Truck, Driver, Helper, Client, RouteArea, RateSettings — all seeded
-- Quote, Booking, BookingHelper, AuditLog — schema ready, not yet used in UI
+- User, TruckType (with eightHourBaseRate/perTripBaseRate), Truck, Driver, Helper, Client, RouteArea
+- RateSettings — 7 new fields: driverRate, helperRate, overheadRate, longDistanceRate, longDistanceThresholdKm, fuelFloor, fuelEfficiencyKmpl
+- Quote (with tripBillingType), Booking (with tripBillingType), BookingHelper, AuditLog
+- BillingType enum: EIGHT_HOUR | PER_TRIP
+- Migration: `prisma/migrations/20260522085840_pricing_engine_refactor`
 
 ---
 
@@ -92,9 +96,40 @@ PDF quotation route (`/api/quotes/[id]/pdf`) redesigned as a client-facing docum
 - Engine lives at `src/features/pricing/engine.ts` — no DB access, no side effects
 - Caller resolves `RateSettings` + `TruckType` from DB and passes them in
 - Pct fields in DB are fractions (0.05 = 5%) — engine receives raw fractions, do NOT ×100
-- Excel had broken cell refs for steps 1 (truck base rate) and 16 (maintenance) — both showed 0
-- Our engine INCLUDES both — corrected V6 reference: 100km, 2 helpers, condo, outOfTown → **₱18,532** (not ₱11,209.60)
-- Do NOT change formula unless business explicitly requests the Excel's broken behavior
+- Do NOT change formula unless business explicitly requests it
+
+### Decision: Pricing engine — bottom-up revenue model (2026-05-22)
+- Formula: `revenue_net_of_vat = base_costs / (1 - markup_total)`
+- `markup_total = driverRate + helperRate + overheadRate [+ longDistanceRate if triggered]`
+- Replaces the old cost+margin model; avoids double-counting
+- Fuel: `MAX(fuelFloor, distance × 2 / efficiency × diesel_price)` — floor is a global setting
+- Toll is added AFTER markup — true pass-through, no VAT applied to it
+- Manual override back-computes `effectiveVatAmount` and `effectiveRevenueNetOfVat` for BIR compliance
+- Markup total ≥ 100% is a hard validation error (would cause division by zero)
+
+### Decision: BillingType enum — EIGHT_HOUR | PER_TRIP (2026-05-22)
+- Stored on both Quote and Booking as `tripBillingType`
+- Propagates from quote through booking conversion
+- Drives which base rate is selected from TruckType (`eightHourBaseRate` vs `perTripBaseRate`)
+- Displayed in Quote detail, Booking detail, and PDF inclusions so client sees what they're getting
+
+### Decision: Long-distance is auto-derived, not a checkbox (2026-05-22)
+- Applied automatically when `estimatedDistanceKm >= longDistanceThresholdKm` (from RateSettings)
+- No admin toggle needed — a visual badge appears in the distance field hint in Quote Builder
+- Eliminates the "easy-to-forget checkbox" UX problem from the old builder
+
+### Decision: Pricing Config UI replaces Rate Settings (2026-05-22)
+- `/pricing-config` is the new route; `/rate-settings` redirects there (no broken bookmarks)
+- Sidebar nav renamed to "Pricing Config"
+- 6 sections: Labor Markups, Overhead & Surcharges, Fuel Config, Trip Base Rates (per-truck-type table), Service Add-ons, Tax (locked VAT)
+- Live preview panel runs the actual engine (sample: 30km, 8-hour, first truck type)
+- Fuel-floor breakeven hint shown inline
+- Save confirmation modal, reset-to-defaults modal, audit log modal (last 10 changes)
+
+### Decision: Quote Edit route (2026-05-22)
+- `/quotes/[id]/edit` reuses QuoteBuilderForm with pre-filled values
+- Save action is `updateQuoteAction` — logs `QUOTE_UPDATED` to AuditLog with before/after key fields (not full object, to keep it readable)
+- "Edit" button appears on quote detail page (outlined maroon, between Back and Download PDF)
 
 ### Decision: Engine context uses structural interfaces, not Prisma types
 - `TruckTypeForPricing` and `RateSettingsForPricing` use `{ toNumber(): number }` for Decimal fields
@@ -120,95 +155,70 @@ PDF quotation route (`/api/quotes/[id]/pdf`) redesigned as a client-facing docum
 
 ### Decision: Decimal serialization at server/client boundary
 - Call `.toNumber()` in server page components before passing as props
-- Applies to: Driver, Helper, RouteArea, RateSettings Decimal fields
+- Applies to: Driver, Helper, RouteArea, RateSettings, TruckType Decimal fields
 
 ### Decision: Fonts via Google Fonts CDN, not next/font (2026-05-20)
 - Replaced `next/font/google` with literal `<link>` tags in `src/app/layout.tsx`, matching `build-guide/joleo_mockup.html` exactly
 - User directive: *"Do not substitute fonts. Match the Joleo mockup exactly."*
-- `globals.css` CSS vars now resolve to literal `'Fraunces'`, `'DM Sans'`, `'JetBrains Mono'`
-- `.display-font` and `.mono` utility classes added per mockup convention
 - Do NOT migrate back to `next/font` without explicit user confirmation, even for performance reasons
 
 ### Decision: Public access via existing cloudflared tunnel (2026-05-20)
 - Reused the Nucbox's `aplaya` tunnel (ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`) rather than spinning up a new tunnel
-- Added `joleo.sas-agent.co.uk` ingress (above the catch-all 404) → `http://localhost:3000` in `/etc/cloudflared/config.yml`
-- The CNAME for the sas-agent.co.uk zone was added via the Cloudflare dashboard, because cloudflared's `~/.cloudflared/cert.pem` on the Nucbox is only authorized for the aplaya-dev.cc zone
-- Do NOT touch the other ingress entries (`aplaya-dev.cc`, `n8n.sas-agent.co.uk`, etc.) — they serve other projects on the same Nucbox
+- Added `joleo.sas-agent.co.uk` ingress in `/etc/cloudflared/config.yml`
+- Do NOT touch the other ingress entries — they serve other projects on the same Nucbox
 
 ### Decision: DejaVu Sans for ₱ glyph in PDFs (2026-05-20)
-- Helvetica (built-in PDF font), Roboto, and Noto Sans Latin subsets all lack U+20B1 (₱ Philippine Peso Sign) — renders as overlapping characters
-- DejaVu Sans Regular (confirmed via byte search) includes U+20B1; DejaVu Sans Bold does NOT
-- TTFs copied from Nucbox system fonts to `public/fonts/DejaVuSans.ttf` and `public/fonts/DejaVuSans-Bold.ttf`
-- Registered via `path.resolve(process.cwd(), "public/fonts/...")` in `Font.register()` — do NOT use URLs or absolute system paths
-- All monetary amount strings in `QuotationPDF.tsx` use Regular weight; labels/headings use Bold (fontWeight 700)
-- Do NOT swap to another font without first confirming U+20B1 is present in the TTF binary
+- Helvetica, Roboto, and Noto Sans Latin subsets all lack U+20B1 (₱ Philippine Peso Sign)
+- DejaVu Sans Regular confirmed via byte search; DejaVu Sans Bold does NOT have it
+- TTFs at `public/fonts/DejaVuSans.ttf` / `public/fonts/DejaVuSans-Bold.ttf`
+- Registered via `path.resolve(process.cwd(), "public/fonts/...")` — do NOT use URLs or absolute system paths
+- All monetary amount strings use Regular weight; labels/headings use Bold
 
 ### Decision: Explicit `import React` in QuotationPDF.tsx (2026-05-20)
-- @react-pdf/renderer v4 uses a custom fiber reconciler that calls component functions in a context where Next.js's automatic JSX transform does not inject React
-- Symptom: `ReferenceError: React is not defined` at runtime in both Next.js and tsx test contexts
-- Fix: `import React from "react"` must remain at the top of `QuotationPDF.tsx` — do NOT remove it even though Next.js 15 uses the automatic JSX transform everywhere else
+- @react-pdf/renderer v4 custom fiber reconciler requires explicit React import
+- Symptom without it: `ReferenceError: React is not defined` at runtime
+- Do NOT remove even though Next.js 15 uses automatic JSX transform everywhere else
 
 ### Decision: Favicons from truck logo (2026-05-20)
-- Source: `docs/356378784_599377255674979_8027307442482878578_n.jpg` (truck silhouette + "JOLEO TRANSPORT" wordmark)
-- Generated via `sharp().trim()` (removes white border) then `.resize()` to 32×32 and 180×180
-- Files: `src/app/icon.png`, `src/app/apple-icon.png` (Next.js App Router auto-wires both)
-- To regenerate: write a one-shot mjs script that imports sharp from its absolute pnpm path (`node_modules/.pnpm/sharp@*/node_modules/sharp/lib/index.js`)
+- Source: `docs/356378784_599377255674979_8027307442482878578_n.jpg`
+- Generated via `sharp().trim()` then `.resize()` to 32×32 and 180×180
 
 ---
 
 ## Active Gotchas
 - Tailwind v4: `@import "tailwindcss"` in globals.css, `@tailwindcss/postcss` in postcss.config.mjs
-- Auth.js v5: `next-auth@beta`; `AUTH_TRUST_HOST=true` AND `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` in .env.local (the latter is needed so post-login callbacks resolve to the public hostname, not localhost)
+- Auth.js v5: `next-auth@beta`; `AUTH_TRUST_HOST=true` AND `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` in .env.local
 - `jose` v6 Edge Runtime CompressionStream warnings — harmless, known upstream issue
 - `env.ts` validates at startup — missing required var = app won't start
 - Sidebar uses inline styles for SSR brand var consistency
 - All Dialogs use `@radix-ui/react-dialog` — already installed
 - `decimal.js` already installed — use it for all currency math
-- `middleware.ts` matcher MUST exclude any top-level app-root icon files (`icon.png`, `apple-icon.png`), otherwise the auth guard 307-redirects them and the favicon never loads
-- pnpm 11 requires `allowBuilds:` in `pnpm-workspace.yaml` with **booleans**, not the placeholder strings pnpm sometimes auto-writes. Without booleans, Prisma/sharp/esbuild postinstall scripts are skipped (`[ERR_PNPM_IGNORED_BUILDS]`)
-- cloudflared cert.pem on the Nucbox is only authorized for the aplaya-dev.cc zone. For sas-agent.co.uk records (or any other zone), create the CNAME via the Cloudflare dashboard manually — do NOT rely on `cloudflared tunnel route dns`
-- sudo on the Nucbox needs a real TTY. Claude Code's Bash tool and `!`-prefixed commands cannot prompt for the password; the user must run sudo from a separate terminal (or `ssh agent@nucbox`)
+- `middleware.ts` matcher MUST exclude any top-level app-root icon files (`icon.png`, `apple-icon.png`)
+- pnpm 11 requires `allowBuilds:` in `pnpm-workspace.yaml` with **booleans**, not placeholder strings
+- cloudflared cert.pem on the Nucbox is only authorized for the aplaya-dev.cc zone — create sas-agent.co.uk CNAMEs via Cloudflare dashboard manually
+- sudo on the Nucbox needs a real TTY — Claude Code's Bash tool cannot prompt for password
 
 ---
 
-## Session Continuity (2026-05-20)
-- Last worked on: PDF redesign — client-facing 7-section layout, DejaVu Sans ₱ fix, 1-page compact grid, explicit React import, try-catch error logging in PDF route
-- **Immediate next step:** user to attempt PDF download and share the error text returned by try-catch; fix the ISE root cause once the actual error is known
-- **Blocked:** PDF ISE not confirmed resolved in Next.js context — tsx render test passes (27 KB), but browser still returns 500; try-catch is in place ready to surface the message
+## Session Continuity (2026-05-22)
+- Last worked on: Verified 6-phase pricing engine refactor (previous session was cut off; this session confirmed all phases clean — TSC 0 errors, 30/30 tests, all files present)
+- **Immediate next step:** Live browser test — Pricing Config live preview, New Quote billing-type toggle, and PDF download at `https://joleo.sas-agent.co.uk`
+- **Open item:** `docs/Joleo_Update_Guide.md` still has the old worked-example ₱ figure; the correct value is ₱5,932.14 (confirmed by test). Update the guide doc to match.
+- **Not blocked:** All code is clean. No ISE, no type errors.
 - Do NOT touch:
-  - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox (serve other projects)
+  - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox
   - Font system (must stay on Google Fonts CDN per user directive)
-  - Dashboard layout (mockup-exact intentional)
-  - `pnpm-workspace.yaml` `allowBuilds:` booleans (needed for postinstall scripts)
   - `import React from "react"` in `QuotationPDF.tsx` (required by @react-pdf/renderer reconciler)
-  - DejaVu font files in `public/fonts/` (only confirmed fonts with U+20B1)
+  - DejaVu font files in `public/fonts/`
+  - `pnpm-workspace.yaml` `allowBuilds:` booleans
 
 ---
 
 ## Reference: M6 Quote Builder Details (archived)
 
-### What M6 delivers
-1. `/quotes` — list page (quoteNo, client, status, amount, date, actions)
-2. `/quotes/new` — two-column builder: form left, live `PriceBreakdownPanel` right
-3. Save as draft action → writes Quote row with `pricingSnapshot` JSON
-4. PDF generation via `@react-pdf/renderer` at `/api/quotes/[id]/pdf`
-5. "Convert to Booking" action → creates Booking from Quote
-
-### Files to create
-- `src/app/(admin)/quotes/page.tsx` — server component, quotes list
-- `src/app/(admin)/quotes/new/page.tsx` — server component, loads clients + truck types + rate settings + route areas
-- `src/app/(admin)/quotes/[id]/page.tsx` — quote detail / view
-- `src/components/quotes/QuoteBuilderForm.tsx` — client component form
-- `src/components/quotes/PriceBreakdownPanel.tsx` — client component, recomputes on every change
-- `src/components/quotes/QuoteListClient.tsx` — client component list
-- `src/components/pdf/QuotationPDF.tsx` — @react-pdf/renderer document
-- `src/app/api/quotes/[id]/pdf/route.ts` — PDF download route
-- `src/actions/quotes.ts` — saveQuoteAction, convertToBookingAction
-
 ### Quote number generation
 ```typescript
 // QT-YYYYMMDD-NNNN — daily sequence reset, Asia/Manila TZ
-// In saveQuoteAction:
 const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }).replace(/-/g, "");
 const count = await db.quote.count({ where: { quoteNo: { startsWith: `QT-${today}-` } } });
 const quoteNo = `QT-${today}-${String(count + 1).padStart(4, "0")}`;
@@ -224,12 +234,3 @@ const quoteNo = `QT-${today}-${String(count + 1).padStart(4, "0")}`;
 ### pricingSnapshot shape
 - Stored as JSON in `Quote.pricingSnapshot`
 - Full `PricingResult` object — includes `rateSnapshot` (copy of settings used) and `inputsSnapshot`
-
-### Key schema fields for Quote
-- `quoteNo` String unique
-- `status` String ("DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED")
-- `clientId` + `walkInName` — one or the other
-- `pricingSnapshot` Json — full PricingResult at time of save
-- `finalPrice` Decimal — targetPrice from engine
-- `manualOverridePrice` Decimal? — if admin overrides
-- `createdById` String — from session.user.id

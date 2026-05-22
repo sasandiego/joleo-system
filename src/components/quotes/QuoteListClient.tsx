@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 interface QuoteSummary {
@@ -28,6 +28,7 @@ export function QuoteListClient({ quotes }: { quotes: QuoteSummary[] }) {
       <PageHeader title="Quotes" subtitle={`${quotes.length} quotation${quotes.length !== 1 ? "s" : ""}`}>
         <Link
           href="/quotes/new"
+          data-btn
           style={{
             background: "var(--maroon)",
             color: "white",
@@ -45,27 +46,24 @@ export function QuoteListClient({ quotes }: { quotes: QuoteSummary[] }) {
 
       {quotes.length === 0 ? (
         <div
+          className="j-empty"
           style={{
             background: "var(--card)",
             border: "1px solid var(--border)",
             borderRadius: 8,
-            padding: "48px 24px",
-            textAlign: "center",
-            color: "var(--muted)",
-            fontSize: 14,
           }}
         >
-          No quotes yet.{" "}
-          <Link href="/quotes/new" style={{ color: "var(--maroon)", textDecoration: "none" }}>
-            Create the first one →
-          </Link>
+          No quotes drafted yet.
+          <small>
+            <Link href="/quotes/new">Create the first one →</Link>
+          </small>
         </div>
       ) : (
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Quote No.", "Client", "Status", "Amount", "Date", "By", ""].map((h) => (
+                {["Quote No.", "Client", "Status", "Amount", "Date & Time", "By", ""].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -94,12 +92,8 @@ export function QuoteListClient({ quotes }: { quotes: QuoteSummary[] }) {
                     <td style={{ padding: "12px 16px" }}>{q.clientName}</td>
                     <td style={{ padding: "12px 16px" }}>
                       <span
+                        className="j-status"
                         style={{
-                          padding: "3px 8px",
-                          borderRadius: 20,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          letterSpacing: "0.04em",
                           background: style.bg,
                           color: style.color,
                           border: `1px solid ${style.color}`,
@@ -112,7 +106,7 @@ export function QuoteListClient({ quotes }: { quotes: QuoteSummary[] }) {
                       {formatCurrency(q.finalPrice)}
                     </td>
                     <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                      {formatDate(q.createdAt)}
+                      {formatDateTime(q.createdAt)}
                     </td>
                     <td style={{ padding: "12px 16px", color: "var(--muted)" }}>{q.createdBy}</td>
                     <td style={{ padding: "12px 16px" }}>

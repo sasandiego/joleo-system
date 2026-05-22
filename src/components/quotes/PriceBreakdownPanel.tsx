@@ -12,7 +12,7 @@ export function PriceBreakdownPanel({ result }: Props) {
     return (
       <div
         style={{
-          background: "var(--card)",
+          background: "var(--paper)",
           border: "1px solid var(--border)",
           borderRadius: 8,
           padding: 32,
@@ -26,50 +26,33 @@ export function PriceBreakdownPanel({ result }: Props) {
     );
   }
 
-  const floorWarning = result.warnings.find((w) => w.code === "PRICE_VS_FLOOR");
-  const marginWarning = result.warnings.find((w) => w.code === "PROFIT_MARGIN");
-  const hoursWarning = result.warnings.find((w) => w.code === "JOB_HOURS");
-
-  const hasError = [floorWarning, marginWarning, hoursWarning].some((w) => w?.level === "ERROR");
-  const hasWarning = !hasError && [floorWarning, marginWarning, hoursWarning].some((w) => w?.level === "WARNING");
-
-  const alertBg = hasError ? "#fee2e2" : hasWarning ? "#fef9c3" : "#dcfce7";
-  const alertColor = hasError ? "#991b1b" : hasWarning ? "#854d0e" : "#166534";
-  const alertBorder = hasError ? "#fca5a5" : hasWarning ? "#fde047" : "#86efac";
-
-  const activeMessages = [floorWarning, marginWarning, hoursWarning]
-    .filter((w) => w && w.level !== "OK")
-    .map((w) => w!.message);
-
-  const okMessages = [floorWarning, marginWarning, hoursWarning]
-    .filter((w) => w?.level === "OK")
-    .map((w) => w!.message);
-
-  const statusLine =
-    activeMessages.length > 0
-      ? activeMessages[0]
-      : okMessages.length > 0
-      ? `Margin ${(result.actualMarginPct * 100).toFixed(1)}% is on target · Price meets floor.`
-      : "";
+  const hasOverride = result.manualOverridePrice !== null;
+  const showInfoBanner = result.warnings.some((w) => w.level === "WARNING" || w.level === "INFO");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* Status alert */}
-      <div
-        style={{
-          padding: "10px 14px",
-          borderRadius: 6,
-          fontSize: 12,
-          fontWeight: 500,
-          background: alertBg,
-          color: alertColor,
-          border: `1px solid ${alertBorder}`,
-        }}
-      >
-        <strong>{hasError ? "Error" : hasWarning ? "Warning" : "OK"}</strong> · {statusLine}
-      </div>
+      {/* Warning/info banner */}
+      {showInfoBanner && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 6,
+            fontSize: 12,
+            background: hasOverride ? "#fef9c3" : "var(--maroon-tint)",
+            color: hasOverride ? "#854d0e" : "var(--maroon)",
+            border: `1px solid ${hasOverride ? "#fde047" : "var(--maroon)"}`,
+            lineHeight: 1.5,
+          }}
+        >
+          {result.warnings
+            .filter((w) => w.level === "WARNING" || w.level === "INFO")
+            .map((w, i) => (
+              <div key={i}>{w.message}</div>
+            ))}
+        </div>
+      )}
 
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}>
+      <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8 }}>
         <div
           style={{
             padding: "14px 20px",
@@ -79,7 +62,7 @@ export function PriceBreakdownPanel({ result }: Props) {
             justifyContent: "space-between",
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: 14 }}>Price Computation</div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Price Breakdown</div>
           <span
             style={{
               fontSize: 10,
@@ -97,134 +80,137 @@ export function PriceBreakdownPanel({ result }: Props) {
         </div>
 
         <div style={{ padding: 20 }}>
-          {/* Line items */}
+          {/* Base components */}
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
             <tbody>
-              {result.lineItems.map((li) => (
-                <tr key={li.code} style={{ opacity: li.amount === 0 ? 0.35 : 1 }}>
-                  <td style={{ padding: "3px 0", color: "var(--fg)" }}>{li.label}</td>
-                  <td
-                    style={{
-                      padding: "3px 0",
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                      color: li.amount === 0 ? "var(--muted)" : "var(--fg)",
-                    }}
-                  >
-                    {formatCurrency(li.amount)}
-                  </td>
-                </tr>
-              ))}
+              <Row label="Fuel cost" amount={result.fuelCost} />
+              <Row label="Trip base rate" amount={result.tripBase} />
+              {result.distanceCharge > 0 && <Row label="Distance charge" amount={result.distanceCharge} />}
+              {result.otherDirectCosts.loadingUnloadingFee > 0 && (
+                <Row label="Loading / Unloading" amount={result.otherDirectCosts.loadingUnloadingFee} />
+              )}
+              {result.otherDirectCosts.condoFee > 0 && (
+                <Row label="Condo handling" amount={result.otherDirectCosts.condoFee} />
+              )}
+              {result.otherDirectCosts.cateringFee > 0 && (
+                <Row label="Catering handling" amount={result.otherDirectCosts.cateringFee} />
+              )}
+              {result.otherDirectCosts.additionalHelperFee > 0 && (
+                <Row label="Additional helper" amount={result.otherDirectCosts.additionalHelperFee} />
+              )}
+              {result.otherDirectCosts.excessHoursFee > 0 && (
+                <Row label="Excess hours" amount={result.otherDirectCosts.excessHoursFee} />
+              )}
+              {result.otherDirectCosts.extraDropoffsFee > 0 && (
+                <Row label="Extra drop-offs" amount={result.otherDirectCosts.extraDropoffsFee} />
+              )}
               <tr style={{ borderTop: "2px solid var(--border)" }}>
-                <td style={{ padding: "8px 0 4px", fontWeight: 600, fontSize: 13 }}>Direct Cost Subtotal</td>
+                <td style={{ padding: "8px 0 4px", fontWeight: 600, fontSize: 13 }}>Base Costs</td>
                 <td style={{ padding: "8px 0 4px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  {formatCurrency(result.directCostSubtotal)}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: "3px 0", color: "var(--muted)", fontSize: 12 }}>Overhead</td>
-                <td style={{ padding: "3px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                  {formatCurrency(result.overheadAllocation)}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: "3px 0", color: "var(--muted)", fontSize: 12 }}>Contingency</td>
-                <td style={{ padding: "3px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                  {formatCurrency(result.contingencyBuffer)}
-                </td>
-              </tr>
-              <tr style={{ borderTop: "2px solid var(--border)" }}>
-                <td style={{ padding: "8px 0 4px", fontWeight: 600, fontSize: 13 }}>Total Cost Before Profit</td>
-                <td style={{ padding: "8px 0 4px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                  {formatCurrency(result.totalCostBeforeProfit)}
+                  {formatCurrency(result.baseCosts)}
                 </td>
               </tr>
             </tbody>
           </table>
 
-          {/* Tier grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, margin: "16px 0" }}>
-            {[
-              { label: "Floor", value: result.floorPrice, isTarget: false },
-              { label: "Target", value: result.targetPrice, isTarget: true },
-              { label: "Ceiling", value: result.ceilingPrice, isTarget: false },
-            ].map(({ label, value, isTarget }) => (
-              <div
-                key={label}
-                style={{
-                  textAlign: "center",
-                  padding: "10px 6px",
-                  border: "1px solid",
-                  borderRadius: 6,
-                  borderColor: isTarget ? "var(--maroon)" : "var(--border)",
-                  background: isTarget ? "var(--maroon-tint)" : "transparent",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 10,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    color: isTarget ? "var(--maroon)" : "var(--muted)",
-                    marginBottom: 4,
-                  }}
-                >
-                  {label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: isTarget ? "var(--maroon)" : "var(--fg)",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {formatCurrency(value)}
-                </div>
-              </div>
-            ))}
+          {/* Markup allocations */}
+          <div style={{ marginTop: 12, padding: "8px 10px", background: "var(--surface)", borderRadius: 6, fontSize: 11 }}>
+            <div style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>
+              Revenue allocations ({(result.markupRate * 100).toFixed(1)}% markup)
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
+              <tbody>
+                <Row label="Driver" amount={result.allocations.driver} muted />
+                <Row label="Helper" amount={result.allocations.helper} muted />
+                <Row label="Overhead" amount={result.allocations.overhead} muted />
+                {result.isLongDistance && (
+                  <Row label={`Long-distance (≥ ${result.ratesSnapshot.longDistanceThresholdKm}km)`} amount={result.allocations.longDistance} muted />
+                )}
+              </tbody>
+            </table>
           </div>
 
-          {/* VAT and final */}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+          {/* Revenue and VAT */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, marginTop: 12 }}>
             <tbody>
+              <tr style={{ borderTop: "2px solid var(--border)" }}>
+                <td style={{ padding: "8px 0 4px", fontWeight: 600 }}>Revenue (net of VAT)</td>
+                <td style={{ padding: "8px 0 4px", textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {formatCurrency(result.revenueNetOfVat)}
+                </td>
+              </tr>
               {result.discountAmount > 0 && (
-                <tr>
-                  <td style={{ padding: "3px 0", color: "var(--muted)" }}>Discount</td>
-                  <td style={{ padding: "3px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                    −{formatCurrency(result.discountAmount)}
-                  </td>
-                </tr>
+                <Row label="Discount" amount={-result.discountAmount} muted />
               )}
               {result.vatAmount > 0 && (
-                <tr>
-                  <td style={{ padding: "3px 0", color: "var(--muted)" }}>
-                    VAT ({result.inputsSnapshot.vatOption === "VAT_INCLUSIVE" ? "inclusive, extracted" : "exclusive, added"})
-                  </td>
-                  <td style={{ padding: "3px 0", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
-                    {formatCurrency(result.vatAmount)}
-                  </td>
-                </tr>
+                <Row
+                  label={`VAT (${result.vatOption === "VAT_INCLUSIVE" ? "inclusive" : "exclusive"}, 12%)`}
+                  amount={result.vatAmount}
+                  muted
+                />
+              )}
+              {result.tollFee > 0 && (
+                <Row label="Toll (pass-through, no markup)" amount={result.tollFee} muted />
               )}
               <tr style={{ borderTop: "2px solid var(--border)" }}>
-                <td style={{ padding: "10px 0 0", fontWeight: 700, fontSize: 14 }}>Final Quoted Price</td>
+                <td style={{ padding: "10px 0 0", fontWeight: 700, fontSize: 14, color: hasOverride ? "var(--ink)" : "var(--maroon)" }}>
+                  {hasOverride ? "Computed Quote" : "Final Quote"}
+                </td>
                 <td
                   style={{
                     padding: "10px 0 0",
                     textAlign: "right",
                     fontWeight: 700,
                     fontSize: 14,
-                    color: "var(--maroon)",
+                    color: hasOverride ? "var(--muted)" : "var(--maroon)",
                     fontVariantNumeric: "tabular-nums",
+                    textDecoration: hasOverride ? "line-through" : "none",
                   }}
                 >
-                  {formatCurrency(result.finalPrice)}
+                  {formatCurrency(result.computedFinalPrice)}
                 </td>
               </tr>
+              {hasOverride && (
+                <tr>
+                  <td style={{ padding: "6px 0 0", fontWeight: 700, fontSize: 15, color: "var(--maroon)" }}>
+                    Final Quote (Override)
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 0 0",
+                      textAlign: "right",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      color: "var(--maroon)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {formatCurrency(result.finalPrice)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
     </div>
+  );
+}
+
+function Row({ label, amount, muted }: { label: string; amount: number; muted?: boolean }) {
+  return (
+    <tr>
+      <td style={{ padding: "3px 0", color: muted ? "var(--muted)" : "var(--ink)" }}>{label}</td>
+      <td
+        style={{
+          padding: "3px 0",
+          textAlign: "right",
+          fontVariantNumeric: "tabular-nums",
+          color: muted ? "var(--muted)" : "var(--ink)",
+        }}
+      >
+        {formatCurrency(amount)}
+      </td>
+    </tr>
   );
 }

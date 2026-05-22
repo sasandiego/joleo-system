@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -26,7 +27,7 @@ const navSections = [
   {
     title: "Configuration",
     items: [
-      { href: "/rate-settings", label: "Rate Settings" },
+      { href: "/pricing-config", label: "Pricing Config" },
       { href: "/users", label: "Users" },
     ],
   },
@@ -64,33 +65,64 @@ export function Sidebar({
       {/* Brand */}
       <div
         style={{
-          padding: "0 24px 24px",
-          borderBottom: "1px solid var(--border)",
-          marginBottom: 16,
+          padding: "0 20px 22px",
+          marginBottom: 14,
+          position: "relative",
         }}
       >
-        <div
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 22,
-            fontWeight: 600,
-            color: "var(--maroon)",
-            letterSpacing: "-0.02em",
-          }}
+        <Link
+          href="/dashboard"
+          style={{ display: "block", textDecoration: "none" }}
+          aria-label="Joleo Transport — Dashboard"
         >
-          Joleo
-        </div>
+          <Image
+            src="/joleo-logo.png"
+            alt="Joleo Transport"
+            width={600}
+            height={431}
+            priority
+            style={{
+              width: "100%",
+              maxWidth: 160,
+              height: "auto",
+              display: "block",
+            }}
+          />
+        </Link>
         <div
           style={{
-            fontSize: 10,
-            letterSpacing: "0.18em",
+            fontFamily: "var(--font-mono)",
+            fontSize: 9.5,
+            letterSpacing: "0.22em",
             textTransform: "uppercase",
             color: "var(--muted)",
-            marginTop: 2,
+            marginTop: 10,
           }}
         >
-          Transport · Admin
+          Admin · Portal
         </div>
+
+        {/* Decorative rule — short maroon stroke + thin hairline */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 20,
+            right: 20,
+            height: 1,
+            background: "var(--border)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 20,
+            width: 32,
+            height: 1,
+            background: "var(--maroon)",
+          }}
+        />
       </div>
 
       {/* Navigation */}

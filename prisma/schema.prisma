@@ -44,6 +44,11 @@ enum ServiceType {
   OTHER
 }
 
+enum BillingType {
+  EIGHT_HOUR
+  PER_TRIP
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -59,13 +64,17 @@ model User {
 }
 
 model TruckType {
-  id             String  @id @default(cuid())
-  code           String  @unique // "10FT_4W", "14FT_6W", "16FT_DROPSIDE", etc.
-  label          String // "10 ftr - 4 wheels"
-  sizeFt         Int
-  wheelType      String // "4-wheel" | "6-wheel"
-  fuelKmPerLiter Decimal @db.Decimal(5, 2)
-  minBaseRate    Decimal @db.Decimal(12, 2)
+  id        String @id @default(cuid())
+  code      String @unique // "10FT_4W", "14FT_6W", "16FT_DROPSIDE", etc.
+  label     String // "10 ftr - 4 wheels"
+  sizeFt    Int
+  wheelType String // "4-wheel" | "6-wheel"
+
+  // Per-billing-type base rate (set in Pricing Config UI per truck type)
+  eightHourBaseRate Decimal @db.Decimal(12, 2) // base for EIGHT_HOUR billing
+  perTripBaseRate   Decimal @db.Decimal(12, 2) // base for PER_TRIP billing
+
+  // Retained operational metadata (informational, not consumed by pricing engine)
   dailyRate      Decimal @db.Decimal(12, 2)
   excessHourRate Decimal @db.Decimal(12, 2)
 
@@ -143,49 +152,39 @@ model RouteArea {
   remarks        String?
 }
 
-// SINGLETON: only one row, id = 1. Fully captures RATE SETTINGS sheet.
+// SINGLETON: only one row, id = 1. Pricing Config (post-refactor bottom-up engine).
 model RateSettings {
   id Int @id @default(1)
 
-  // FUEL & OPERATIONS
-  dieselPricePerLiter Decimal @db.Decimal(8, 2) // 70.00
-  fuelSurchargePct    Decimal @db.Decimal(5, 4) // 0.0500
+  // LABOR MARKUPS — percentages of Revenue Net of VAT
+  driverRate Decimal @db.Decimal(5, 4) // 0.1500 = 15%
+  helperRate Decimal @db.Decimal(5, 4) // 0.0750 = 7.5%
 
-  // MANPOWER
-  driverDailyRate      Decimal @db.Decimal(12, 2) // 800
-  driverOtRate         Decimal @db.Decimal(12, 2) // 150
-  helperDailyRate      Decimal @db.Decimal(12, 2) // 600
-  helperOtRate         Decimal @db.Decimal(12, 2) // 100
-  additionalHelperRate Decimal @db.Decimal(12, 2) // 600
+  // OVERHEAD & SURCHARGES — percentages of Revenue Net of VAT
+  overheadRate            Decimal @db.Decimal(5, 4) // 0.0500
+  longDistanceRate        Decimal @db.Decimal(5, 4) // 0.0500
+  longDistanceThresholdKm Int // 50
 
-  // SERVICE INCLUSIONS
+  // FUEL CONFIG
+  dieselPricePerLiter Decimal @db.Decimal(8, 2) // 70.00 (current diesel price)
+  fuelFloor           Decimal @db.Decimal(12, 2) // 500 (minimum fuel charge)
+  fuelEfficiencyKmpl  Decimal @db.Decimal(5, 2) // 5.00 (km per liter, global)
+
+  // ADD-ON RATES — added to direct costs (other_direct_costs)
+  additionalHelperRate    Decimal @db.Decimal(12, 2) // 600 (when additionalHelper flag set)
+  additionalHourRate      Decimal @db.Decimal(12, 2) // 350 (per excess hour beyond standard)
+  additionalDropoffCharge Decimal @db.Decimal(12, 2) // 300 (per extra drop-off)
   standardIncludedHours   Int // 8
-  additionalHourRate      Decimal @db.Decimal(12, 2) // 350
-  additionalDropoffCharge Decimal @db.Decimal(12, 2) // 300
 
-  // SPECIAL SERVICE FEES
-  condoHandlingFee       Decimal @db.Decimal(12, 2) // 500
-  cateringHandlingFee    Decimal @db.Decimal(12, 2) // 400
-  loadingUnloadingFee    Decimal @db.Decimal(12, 2) // 0
-  nightDeliverySurcharge Decimal @db.Decimal(12, 2) // 500
-  waitingTimeChargePerHr Decimal @db.Decimal(12, 2) // 200
+  // SPECIAL SERVICE FEES — added to direct costs when corresponding flag is set
+  condoHandlingFee    Decimal @db.Decimal(12, 2) // 500
+  cateringHandlingFee Decimal @db.Decimal(12, 2) // 400
+  loadingUnloadingFee Decimal @db.Decimal(12, 2) // 0
 
-  // DISTANCE SURCHARGES
-  outOfTownSurcharge  Decimal @db.Decimal(12, 2) // 500
-  longDistanceSurcharge Decimal @db.Decimal(12, 2) // 1500
-  distanceRatePerKm   Decimal @db.Decimal(12, 2) // 12
+  // DISTANCE
+  distanceRatePerKm Decimal @db.Decimal(12, 2) // 12
 
-  // COST ALLOCATIONS (fractions)
-  maintenancePctOfBase   Decimal @db.Decimal(5, 4) // 0.0800
-  overheadPctOfDirect    Decimal @db.Decimal(5, 4) // 0.1000
-  contingencyPctOfDirect Decimal @db.Decimal(5, 4) // 0.0300
-
-  // PROFIT MARGINS (fractions)
-  floorMarginPct   Decimal @db.Decimal(5, 4) // 0.1500
-  targetMarginPct  Decimal @db.Decimal(5, 4) // 0.2500
-  ceilingMarginPct Decimal @db.Decimal(5, 4) // 0.4000
-
-  // TAX
+  // TAX (locked, regulated by BIR)
   vatRate Decimal @db.Decimal(5, 4) // 0.1200
 
   updatedAt DateTime @updatedAt
@@ -214,18 +213,17 @@ model Quote {
   truckTypeId     String?
   numberOfHelpers Int     @default(1)
 
+  // Billing type — chosen at quote time, determines which truck-type base rate applies
+  tripBillingType BillingType @default(EIGHT_HOUR)
+
   // Flags
   condoService     Boolean @default(false)
   cateringService  Boolean @default(false)
-  nightDelivery    Boolean @default(false)
   additionalHelper Boolean @default(false)
-  outOfTown        Boolean @default(false)
-  longDistance     Boolean @default(false)
 
   // Costs
-  tollFee           Decimal  @db.Decimal(12, 2) @default(0)
-  parkingFee        Decimal  @db.Decimal(12, 2) @default(0)
-  fuelPriceOverride Decimal? @db.Decimal(8, 2)
+  tollFee           Decimal  @db.Decimal(12, 2) @default(0) // pass-through, no markup
+  fuelPriceOverride Decimal? @db.Decimal(8, 2) // override current diesel price for this quote only
   discountAmount    Decimal  @db.Decimal(12, 2) @default(0)
   vatOption         VatOption @default(VAT_INCLUSIVE)
 
@@ -268,6 +266,7 @@ model Booking {
   dropoffPoint        String
   estimatedDistanceKm Int
   routeAreaId         String?
+  tripBillingType     BillingType @default(EIGHT_HOUR)
 
   // Assignment
   truckId  String?

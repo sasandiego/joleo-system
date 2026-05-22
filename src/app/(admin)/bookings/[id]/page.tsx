@@ -52,6 +52,7 @@ export default async function BookingDetailPage({ params }: Props) {
     pickup: booking.pickupPoint,
     dropoff: booking.dropoffPoint,
     estimatedDistanceKm: booking.estimatedDistanceKm,
+    tripBillingType: booking.tripBillingType,
     truckId: booking.truck?.id ?? null,
     truckLabel: booking.truck ? `${booking.truck.code} — ${booking.truck.plateNo}` : null,
     driverId: booking.driver?.id ?? null,

@@ -9,8 +9,8 @@ interface TruckType {
   label: string;
   sizeFt: number;
   wheelType: string;
-  fuelKmPerLiter: unknown;
-  minBaseRate: unknown;
+  eightHourBaseRate: unknown;
+  perTripBaseRate: unknown;
 }
 
 interface Truck {
@@ -220,7 +220,7 @@ export function TruckListClient({ trucks, truckTypes }: TruckListClientProps) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Truck ID", "Plate No.", "Type", "Fuel km/L", "Min Base Rate", "Status", "Actions"].map(
+              {["Truck ID", "Plate No.", "Type", "8-Hour Base", "Per-Trip Base", "Status", "Actions"].map(
                 (h) => (
                   <th
                     key={h}
@@ -312,7 +312,7 @@ export function TruckListClient({ trucks, truckTypes }: TruckListClientProps) {
                       borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none",
                     }}
                   >
-                    {Number(truck.truckType.fuelKmPerLiter).toFixed(1)}
+                    ₱{Number(truck.truckType.eightHourBaseRate).toLocaleString("en-PH", { minimumFractionDigits: 0 })}
                   </td>
                   <td
                     style={{
@@ -323,7 +323,7 @@ export function TruckListClient({ trucks, truckTypes }: TruckListClientProps) {
                       borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none",
                     }}
                   >
-                    ₱{Number(truck.truckType.minBaseRate).toLocaleString("en-PH", { minimumFractionDigits: 0 })}
+                    ₱{Number(truck.truckType.perTripBaseRate).toLocaleString("en-PH", { minimumFractionDigits: 0 })}
                   </td>
                   <td
                     style={{

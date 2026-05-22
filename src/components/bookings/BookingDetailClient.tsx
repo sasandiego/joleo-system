@@ -19,6 +19,7 @@ interface BookingDetail {
   pickup: string;
   dropoff: string;
   estimatedDistanceKm: number;
+  tripBillingType: "EIGHT_HOUR" | "PER_TRIP";
   truckId: string | null;
   truckLabel: string | null;
   driverId: string | null;
@@ -281,6 +282,7 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
               <DetailRow label="Pick-up" value={booking.pickup} />
               <DetailRow label="Drop-off" value={booking.dropoff} />
               <DetailRow label="Distance" value={`${booking.estimatedDistanceKm} km`} />
+              <DetailRow label="Billing Type" value={booking.tripBillingType === "EIGHT_HOUR" ? "8 Hours" : "Per Trip"} />
               <DetailRow label="Date" value={formatDate(booking.scheduledDate)} />
               {booking.scheduledStartTime && (
                 <DetailRow label="Time" value={`${booking.scheduledStartTime}${booking.scheduledEndTime ? ` – ${booking.scheduledEndTime}` : ""}`} />

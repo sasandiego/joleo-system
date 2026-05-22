@@ -1,10 +1,17 @@
 import { db } from "@/lib/db";
-import Link from "next/link";
+import { notFound } from "next/navigation";
 import { QuoteBuilderForm } from "@/components/quotes/QuoteBuilderForm";
-import { PageHeader } from "@/components/layout/PageHeader";
+import type { QuoteInitialValues } from "@/components/quotes/QuoteBuilderForm";
 
-export default async function NewQuotePage() {
-  const [clients, truckTypes, routeAreas, settings] = await Promise.all([
+interface Props {
+  params: Promise<{ id: string }>;
+}
+
+export default async function EditQuotePage({ params }: Props) {
+  const { id } = await params;
+
+  const [quote, clients, truckTypes, routeAreas, settings] = await Promise.all([
+    db.quote.findUnique({ where: { id } }),
     db.client.findMany({
       where: { isActive: true },
       orderBy: { companyName: "asc" },
@@ -29,19 +36,30 @@ export default async function NewQuotePage() {
     db.rateSettings.findUniqueOrThrow({ where: { id: 1 } }),
   ]);
 
-  if (clients.length === 0) {
-    return (
-      <div style={{ maxWidth: 640 }}>
-        <PageHeader title="New Quote" subtitle="Add a client first" />
-        <div className="j-empty" style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 10 }}>
-          No active clients yet — every quotation needs a client profile.
-          <small>
-            <Link href="/clients">Go to Clients → add the first one</Link>
-          </small>
-        </div>
-      </div>
-    );
-  }
+  if (!quote) notFound();
+
+  const initial: QuoteInitialValues = {
+    id: quote.id,
+    clientId: quote.clientId ?? "",
+    serviceType: quote.serviceType,
+    pickupPoint: quote.pickupPoint,
+    dropoffPoint: quote.dropoffPoint,
+    routeAreaId: quote.routeAreaId,
+    truckTypeId: quote.truckTypeId ?? truckTypes[0]?.id ?? "",
+    numberOfHelpers: quote.numberOfHelpers,
+    estimatedDistanceKm: quote.estimatedDistanceKm,
+    estimatedHours: quote.estimatedHours ?? settings.standardIncludedHours,
+    numberOfDropoffs: quote.numberOfDropoffs,
+    tripBillingType: quote.tripBillingType,
+    condoService: quote.condoService,
+    cateringService: quote.cateringService,
+    additionalHelper: quote.additionalHelper,
+    tollFee: quote.tollFee.toNumber(),
+    discountAmount: quote.discountAmount.toNumber(),
+    manualOverridePrice: quote.manualOverridePrice?.toNumber() ?? null,
+    vatOption: quote.vatOption,
+    notes: quote.notes,
+  };
 
   const settingsForClient = {
     driverRate: settings.driverRate.toNumber(),
@@ -79,6 +97,7 @@ export default async function NewQuotePage() {
       truckTypes={truckTypesForClient}
       routeAreas={routeAreas}
       settings={settingsForClient}
+      initial={initial}
     />
   );
 }

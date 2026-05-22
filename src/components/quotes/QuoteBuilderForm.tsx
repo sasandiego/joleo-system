@@ -2,11 +2,11 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { saveQuoteAction } from "@/actions/quotes";
+import { saveQuoteAction, updateQuoteAction } from "@/actions/quotes";
 import { computePrice } from "@/features/pricing/engine";
 import { PriceBreakdownPanel } from "./PriceBreakdownPanel";
 import { PageHeader } from "@/components/layout/PageHeader";
-import type { PricingResult } from "@/features/pricing/types";
+import type { BillingType, PricingResult, VatOption } from "@/features/pricing/types";
 import Link from "next/link";
 
 interface Client {
@@ -21,8 +21,8 @@ interface TruckType {
   label: string;
   sizeFt: number;
   wheelType: string;
-  minBaseRate: number;
-  fuelKmPerLiter: number;
+  eightHourBaseRate: number;
+  perTripBaseRate: number;
 }
 
 interface RouteArea {
@@ -31,28 +31,47 @@ interface RouteArea {
 }
 
 interface Settings {
+  driverRate: number; // fraction (0.15 = 15%)
+  helperRate: number;
+  overheadRate: number;
+  longDistanceRate: number;
+  longDistanceThresholdKm: number;
   dieselPricePerLiter: number;
-  fuelSurchargePct: number;
-  driverDailyRate: number;
-  helperDailyRate: number;
+  fuelFloor: number;
+  fuelEfficiencyKmpl: number;
   additionalHelperRate: number;
   additionalHourRate: number;
   additionalDropoffCharge: number;
+  standardIncludedHours: number;
   condoHandlingFee: number;
   cateringHandlingFee: number;
   loadingUnloadingFee: number;
-  nightDeliverySurcharge: number;
-  outOfTownSurcharge: number;
-  longDistanceSurcharge: number;
   distanceRatePerKm: number;
-  maintenancePctOfBase: number;
-  overheadPctOfDirect: number;
-  contingencyPctOfDirect: number;
-  floorMarginPct: number;
-  targetMarginPct: number;
-  ceilingMarginPct: number;
   vatRate: number;
-  standardIncludedHours: number;
+}
+
+// For the edit mode — values restored from an existing quote
+export interface QuoteInitialValues {
+  id: string;
+  clientId: string;
+  serviceType: string;
+  pickupPoint: string;
+  dropoffPoint: string;
+  routeAreaId: string | null;
+  truckTypeId: string;
+  numberOfHelpers: number;
+  estimatedDistanceKm: number;
+  estimatedHours: number;
+  numberOfDropoffs: number;
+  tripBillingType: BillingType;
+  condoService: boolean;
+  cateringService: boolean;
+  additionalHelper: boolean;
+  tollFee: number;
+  discountAmount: number;
+  manualOverridePrice: number | null;
+  vatOption: VatOption;
+  notes: string | null;
 }
 
 interface Props {
@@ -60,40 +79,37 @@ interface Props {
   truckTypes: TruckType[];
   routeAreas: RouteArea[];
   settings: Settings;
+  initial?: QuoteInitialValues; // present in edit mode
 }
 
-function wrapDecimal(n: number) {
+function w(n: number) {
   return { toNumber: () => n };
 }
 
 function buildContext(settings: Settings, truckType: TruckType) {
   return {
     truckType: {
-      minBaseRate: wrapDecimal(truckType.minBaseRate),
-      fuelKmPerLiter: wrapDecimal(truckType.fuelKmPerLiter),
+      eightHourBaseRate: w(truckType.eightHourBaseRate),
+      perTripBaseRate: w(truckType.perTripBaseRate),
     },
     settings: {
-      dieselPricePerLiter: wrapDecimal(settings.dieselPricePerLiter),
-      fuelSurchargePct: wrapDecimal(settings.fuelSurchargePct),
-      driverDailyRate: wrapDecimal(settings.driverDailyRate),
-      helperDailyRate: wrapDecimal(settings.helperDailyRate),
-      additionalHelperRate: wrapDecimal(settings.additionalHelperRate),
-      additionalHourRate: wrapDecimal(settings.additionalHourRate),
-      additionalDropoffCharge: wrapDecimal(settings.additionalDropoffCharge),
-      condoHandlingFee: wrapDecimal(settings.condoHandlingFee),
-      cateringHandlingFee: wrapDecimal(settings.cateringHandlingFee),
-      loadingUnloadingFee: wrapDecimal(settings.loadingUnloadingFee),
-      nightDeliverySurcharge: wrapDecimal(settings.nightDeliverySurcharge),
-      outOfTownSurcharge: wrapDecimal(settings.outOfTownSurcharge),
-      longDistanceSurcharge: wrapDecimal(settings.longDistanceSurcharge),
-      distanceRatePerKm: wrapDecimal(settings.distanceRatePerKm),
-      maintenancePctOfBase: wrapDecimal(settings.maintenancePctOfBase),
-      overheadPctOfDirect: wrapDecimal(settings.overheadPctOfDirect),
-      contingencyPctOfDirect: wrapDecimal(settings.contingencyPctOfDirect),
-      floorMarginPct: wrapDecimal(settings.floorMarginPct),
-      targetMarginPct: wrapDecimal(settings.targetMarginPct),
-      ceilingMarginPct: wrapDecimal(settings.ceilingMarginPct),
-      vatRate: wrapDecimal(settings.vatRate),
+      driverRate: w(settings.driverRate),
+      helperRate: w(settings.helperRate),
+      overheadRate: w(settings.overheadRate),
+      longDistanceRate: w(settings.longDistanceRate),
+      longDistanceThresholdKm: settings.longDistanceThresholdKm,
+      dieselPricePerLiter: w(settings.dieselPricePerLiter),
+      fuelFloor: w(settings.fuelFloor),
+      fuelEfficiencyKmpl: w(settings.fuelEfficiencyKmpl),
+      additionalHelperRate: w(settings.additionalHelperRate),
+      additionalHourRate: w(settings.additionalHourRate),
+      additionalDropoffCharge: w(settings.additionalDropoffCharge),
+      standardIncludedHours: settings.standardIncludedHours,
+      condoHandlingFee: w(settings.condoHandlingFee),
+      cateringHandlingFee: w(settings.cateringHandlingFee),
+      loadingUnloadingFee: w(settings.loadingUnloadingFee),
+      distanceRatePerKm: w(settings.distanceRatePerKm),
+      vatRate: w(settings.vatRate),
     },
   };
 }
@@ -128,8 +144,8 @@ const inputStyle: React.CSSProperties = {
   padding: "8px 10px",
   fontSize: 13,
   fontFamily: "inherit",
-  background: "var(--bg)",
-  color: "var(--fg)",
+  background: "white",
+  color: "var(--ink)",
   outline: "none",
 };
 
@@ -143,14 +159,37 @@ const selectStyle: React.CSSProperties = {
   paddingRight: 28,
 };
 
-function SaveButtons({ hasError }: { hasError: boolean }) {
+function SaveButtons({ hasError, isEdit }: { hasError: boolean; isEdit: boolean }) {
   const { pending } = useFormStatus();
+  if (isEdit) {
+    return (
+      <button
+        type="submit"
+        data-btn
+        disabled={pending || hasError}
+        style={{
+          background: pending || hasError ? "var(--maroon-tint)" : "var(--maroon)",
+          color: pending || hasError ? "var(--maroon)" : "white",
+          border: "none",
+          borderRadius: 6,
+          padding: "8px 16px",
+          fontSize: 13,
+          fontWeight: 500,
+          cursor: pending || hasError ? "not-allowed" : "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {pending ? "Saving…" : "Save changes"}
+      </button>
+    );
+  }
   return (
     <>
       <button
         type="submit"
         name="convertToBooking"
         value="false"
+        data-btn
         disabled={pending || hasError}
         style={{
           background: "transparent",
@@ -160,7 +199,7 @@ function SaveButtons({ hasError }: { hasError: boolean }) {
           fontSize: 13,
           fontWeight: 500,
           cursor: pending || hasError ? "not-allowed" : "pointer",
-          color: hasError ? "var(--muted)" : "var(--fg)",
+          color: hasError ? "var(--muted)" : "var(--ink)",
           fontFamily: "inherit",
         }}
       >
@@ -170,6 +209,7 @@ function SaveButtons({ hasError }: { hasError: boolean }) {
         type="submit"
         name="convertToBooking"
         value="true"
+        data-btn
         disabled={pending || hasError}
         style={{
           background: pending || hasError ? "var(--maroon-tint)" : "var(--maroon)",
@@ -189,29 +229,33 @@ function SaveButtons({ hasError }: { hasError: boolean }) {
   );
 }
 
-export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: Props) {
-  const [actionState, formAction] = useActionState(saveQuoteAction, undefined);
+export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, initial }: Props) {
+  const isEdit = !!initial;
+  const [actionState, formAction] = useActionState(
+    isEdit ? updateQuoteAction : saveQuoteAction,
+    undefined,
+  );
 
   const defaultTruckType = truckTypes[0];
 
-  const [truckTypeId, setTruckTypeId] = useState(defaultTruckType?.id ?? "");
-  const [distanceKm, setDistanceKm] = useState(50);
-  const [jobHours, setJobHours] = useState(settings.standardIncludedHours);
-  const [includedHours, setIncludedHours] = useState(settings.standardIncludedHours);
-  const [numHelpers, setNumHelpers] = useState(1);
-  const [numDropoffs, setNumDropoffs] = useState(1);
-  const [tollFee, setTollFee] = useState(0);
-  const [parkingFee, setParkingFee] = useState(0);
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [condoService, setCondoService] = useState(false);
-  const [cateringService, setCateringService] = useState(false);
-  const [nightDelivery, setNightDelivery] = useState(false);
-  const [additionalHelper, setAdditionalHelper] = useState(false);
-  const [outOfTown, setOutOfTown] = useState(false);
-  const [longDistance, setLongDistance] = useState(false);
-  const [vatOption, setVatOption] = useState<"VAT_INCLUSIVE" | "VAT_EXCLUSIVE" | "NON_VAT">("VAT_INCLUSIVE");
+  const [truckTypeId, setTruckTypeId] = useState(initial?.truckTypeId ?? defaultTruckType?.id ?? "");
+  const [tripBillingType, setTripBillingType] = useState<BillingType>(initial?.tripBillingType ?? "EIGHT_HOUR");
+  const [distanceKm, setDistanceKm] = useState(initial?.estimatedDistanceKm ?? 30);
+  const [jobHours, setJobHours] = useState(initial?.estimatedHours ?? settings.standardIncludedHours);
+  const [numHelpers, setNumHelpers] = useState(initial?.numberOfHelpers ?? 1);
+  const [numDropoffs, setNumDropoffs] = useState(initial?.numberOfDropoffs ?? 1);
+  const [tollFee, setTollFee] = useState(initial?.tollFee ?? 0);
+  const [discountAmount, setDiscountAmount] = useState(initial?.discountAmount ?? 0);
+  const [manualOverridePrice, setManualOverridePrice] = useState<number | "">(
+    initial?.manualOverridePrice ?? "",
+  );
+  const [condoService, setCondoService] = useState(initial?.condoService ?? false);
+  const [cateringService, setCateringService] = useState(initial?.cateringService ?? false);
+  const [additionalHelper, setAdditionalHelper] = useState(initial?.additionalHelper ?? false);
+  const [vatOption, setVatOption] = useState<VatOption>(initial?.vatOption ?? "VAT_INCLUSIVE");
 
   const selectedTruckType = truckTypes.find((t) => t.id === truckTypeId) ?? defaultTruckType;
+  const isLongDistance = distanceKm >= settings.longDistanceThresholdKm;
 
   const pricingResult = useMemo<PricingResult | null>(() => {
     if (!selectedTruckType) return null;
@@ -220,21 +264,17 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
         {
           estimatedDistanceKm: distanceKm,
           estimatedJobHours: jobHours,
-          includedHours,
-          numberOfHelpers: numHelpers,
+          tripBillingType,
           numberOfDropoffs: numDropoffs,
           condoService,
           cateringService,
-          nightDelivery,
           additionalHelper,
-          outOfTown,
-          longDistance,
           tollFee,
-          parkingFee,
           discountAmount,
+          manualOverridePrice: manualOverridePrice === "" ? undefined : manualOverridePrice,
           vatOption,
         },
-        buildContext(settings, selectedTruckType)
+        buildContext(settings, selectedTruckType),
       );
     } catch {
       return null;
@@ -243,43 +283,45 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
     selectedTruckType,
     distanceKm,
     jobHours,
-    includedHours,
+    tripBillingType,
     numHelpers,
     numDropoffs,
     condoService,
     cateringService,
-    nightDelivery,
     additionalHelper,
-    outOfTown,
-    longDistance,
     tollFee,
-    parkingFee,
     discountAmount,
+    manualOverridePrice,
     vatOption,
     settings,
   ]);
 
   const hasError =
-    !!pricingResult?.warnings.some((w) => w.level === "ERROR") || !pricingResult;
+    !pricingResult ||
+    !!pricingResult.warnings.some((w) => w.level === "ERROR");
 
   return (
     <form action={formAction}>
-      <PageHeader title="New Quotation" subtitle="Draft">
+      <PageHeader
+        title={isEdit ? `Edit ${initial?.id ? "Quotation" : ""}` : "New Quotation"}
+        subtitle={isEdit ? "All changes recalculate the price and are audited." : "Draft"}
+      >
         <Link
-          href="/quotes"
+          href={isEdit ? `/quotes/${initial?.id}` : "/quotes"}
+          data-btn
           style={{
             background: "transparent",
             border: "1px solid var(--border)",
             borderRadius: 6,
             padding: "8px 16px",
             fontSize: 13,
-            color: "var(--fg)",
+            color: "var(--ink)",
             textDecoration: "none",
           }}
         >
           Cancel
         </Link>
-        <SaveButtons hasError={hasError} />
+        <SaveButtons hasError={hasError} isEdit={isEdit} />
       </PageHeader>
 
       {actionState?.error && (
@@ -298,33 +340,31 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
         </div>
       )}
 
-      {/* Hidden fields for pricing-derived values */}
+      {/* Hidden fields for pricing inputs */}
+      {isEdit && <input type="hidden" name="id" value={initial.id} />}
       <input type="hidden" name="estimatedDistanceKm" value={distanceKm} />
       <input type="hidden" name="estimatedHours" value={jobHours} />
-      <input type="hidden" name="includedHours" value={includedHours} />
       <input type="hidden" name="numberOfHelpers" value={numHelpers} />
       <input type="hidden" name="numberOfDropoffs" value={numDropoffs} />
       <input type="hidden" name="tollFee" value={tollFee} />
-      <input type="hidden" name="parkingFee" value={parkingFee} />
       <input type="hidden" name="discountAmount" value={discountAmount} />
+      <input type="hidden" name="manualOverridePrice" value={String(manualOverridePrice)} />
       <input type="hidden" name="condoService" value={String(condoService)} />
       <input type="hidden" name="cateringService" value={String(cateringService)} />
-      <input type="hidden" name="nightDelivery" value={String(nightDelivery)} />
       <input type="hidden" name="additionalHelper" value={String(additionalHelper)} />
-      <input type="hidden" name="outOfTown" value={String(outOfTown)} />
-      <input type="hidden" name="longDistance" value={String(longDistance)} />
       <input type="hidden" name="vatOption" value={vatOption} />
       <input type="hidden" name="truckTypeId" value={truckTypeId} />
+      <input type="hidden" name="tripBillingType" value={tripBillingType} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" }}>
         {/* Left: form sections */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Section A */}
+          {/* Section A — Booking Information */}
           <SectionCard title="A · Booking Information">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <FieldGroup label="Client">
-                <select name="clientId" style={selectStyle}>
-                  <option value="">Walk-in client</option>
+                <select name="clientId" style={selectStyle} required defaultValue={initial?.clientId ?? ""}>
+                  <option value="" disabled>— Select client —</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.companyName}
@@ -332,17 +372,22 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   ))}
                 </select>
               </FieldGroup>
-              <FieldGroup label="Walk-in Name">
-                <input name="walkInName" type="text" style={inputStyle} placeholder="If no client record" />
+              <FieldGroup label="Service Type">
+                <select name="serviceType" style={selectStyle} defaultValue={initial?.serviceType ?? "LIPAT_BAHAY"}>
+                  <option value="LIPAT_BAHAY">Lipat-Bahay / House Moving</option>
+                  <option value="COMMERCIAL_DELIVERY">Commercial Delivery</option>
+                  <option value="CATERING_DELIVERY">Catering Delivery</option>
+                  <option value="OTHER">Other</option>
+                </select>
               </FieldGroup>
               <FieldGroup label="Pick-up Point">
-                <input name="pickupPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Pioneer, Mandaluyong" required />
+                <input name="pickupPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Pioneer, Mandaluyong" required defaultValue={initial?.pickupPoint ?? ""} />
               </FieldGroup>
               <FieldGroup label="Drop-off Point">
-                <input name="dropoffPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Marquee, Pampanga" required />
+                <input name="dropoffPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Marquee, Pampanga" required defaultValue={initial?.dropoffPoint ?? ""} />
               </FieldGroup>
               <FieldGroup label="Route / Area">
-                <select name="routeAreaId" style={selectStyle}>
+                <select name="routeAreaId" style={selectStyle} defaultValue={initial?.routeAreaId ?? ""}>
                   <option value="">— Select area —</option>
                   {routeAreas.map((r) => (
                     <option key={r.id} value={r.id}>
@@ -351,18 +396,16 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   ))}
                 </select>
               </FieldGroup>
-              <FieldGroup label="Service Type">
-                <select name="serviceType" style={selectStyle} defaultValue="LIPAT_BAHAY">
-                  <option value="LIPAT_BAHAY">Lipat-Bahay / House Moving</option>
-                  <option value="COMMERCIAL_DELIVERY">Commercial Delivery</option>
-                  <option value="CATERING_DELIVERY">Catering Delivery</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </FieldGroup>
-              <FieldGroup label="Estimated Distance (km)">
+              <FieldGroup
+                label="Estimated Distance (km)"
+                hint={isLongDistance ? `≥ ${settings.longDistanceThresholdKm} km — long-distance surcharge applies` : undefined}
+              >
                 <input
                   type="number"
-                  style={inputStyle}
+                  style={{
+                    ...inputStyle,
+                    borderColor: isLongDistance ? "var(--maroon)" : "var(--border)",
+                  }}
                   value={distanceKm}
                   min={1}
                   onChange={(e) => setDistanceKm(Math.max(1, parseInt(e.target.value) || 1))}
@@ -382,19 +425,20 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   name="notes"
                   style={{ ...inputStyle, resize: "vertical", minHeight: 72 }}
                   placeholder="Optional notes for this quote"
+                  defaultValue={initial?.notes ?? ""}
                 />
               </FieldGroup>
             </div>
           </SectionCard>
 
-          {/* Section B */}
+          {/* Section B — Truck & Crew */}
           <SectionCard title="B · Truck & Crew Selection">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <FieldGroup
                 label="Truck Type"
                 hint={
                   selectedTruckType
-                    ? `Min base rate ₱${selectedTruckType.minBaseRate.toLocaleString("en-PH")} · ${selectedTruckType.fuelKmPerLiter} km/L`
+                    ? `8-hr base ₱${selectedTruckType.eightHourBaseRate.toLocaleString("en-PH")} · Per-trip ₱${selectedTruckType.perTripBaseRate.toLocaleString("en-PH")}`
                     : undefined
                 }
               >
@@ -410,7 +454,7 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   ))}
                 </select>
               </FieldGroup>
-              <FieldGroup label="Number of Helpers">
+              <FieldGroup label="Number of Helpers" hint="Used for crew assignment; helper compensation is a revenue allocation.">
                 <input
                   type="number"
                   style={inputStyle}
@@ -422,28 +466,41 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
             </div>
           </SectionCard>
 
-          {/* Section C */}
-          <SectionCard title="C · Job Details & Service Flags">
+          {/* Section C — Billing & Job Details */}
+          <SectionCard title="C · Billing & Job Details">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <FieldGroup label="Included Hours">
-                <input
-                  type="number"
-                  style={inputStyle}
-                  value={includedHours}
-                  min={1}
-                  onChange={(e) => setIncludedHours(Math.max(1, parseInt(e.target.value) || 1))}
-                />
+              <FieldGroup label="Billing Type" hint="8 Hours for local/short trips · Per Trip for long-distance flat-rate trips.">
+                <div style={{ display: "flex", gap: 6 }}>
+                  <BillingToggleBtn
+                    label="8 Hours"
+                    active={tripBillingType === "EIGHT_HOUR"}
+                    onClick={() => setTripBillingType("EIGHT_HOUR")}
+                  />
+                  <BillingToggleBtn
+                    label="Per Trip"
+                    active={tripBillingType === "PER_TRIP"}
+                    onClick={() => setTripBillingType("PER_TRIP")}
+                  />
+                </div>
               </FieldGroup>
-              <FieldGroup label="Estimated Job Hours">
+              <FieldGroup
+                label="Estimated Job Hours"
+                hint={
+                  tripBillingType === "EIGHT_HOUR"
+                    ? `Standard ${settings.standardIncludedHours} hrs included. Excess hours billed at ₱${settings.additionalHourRate}/hr.`
+                    : "Not used for Per-Trip billing."
+                }
+              >
                 <input
                   type="number"
                   style={inputStyle}
                   value={jobHours}
                   min={1}
+                  disabled={tripBillingType === "PER_TRIP"}
                   onChange={(e) => setJobHours(Math.max(1, parseInt(e.target.value) || 1))}
                 />
               </FieldGroup>
-              <FieldGroup label="Toll Fee (₱)">
+              <FieldGroup label="Toll Fee (₱)" hint="Pass-through — added to the final price, no markup or VAT.">
                 <input
                   type="number"
                   style={inputStyle}
@@ -453,15 +510,16 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   onChange={(e) => setTollFee(parseFloat(e.target.value) || 0)}
                 />
               </FieldGroup>
-              <FieldGroup label="Parking Fee (₱)">
-                <input
-                  type="number"
-                  style={inputStyle}
-                  value={parkingFee}
-                  min={0}
-                  step="0.01"
-                  onChange={(e) => setParkingFee(parseFloat(e.target.value) || 0)}
-                />
+              <FieldGroup label="VAT Option">
+                <select
+                  style={selectStyle}
+                  value={vatOption}
+                  onChange={(e) => setVatOption(e.target.value as VatOption)}
+                >
+                  <option value="VAT_INCLUSIVE">VAT-Inclusive (default)</option>
+                  <option value="VAT_EXCLUSIVE">VAT-Exclusive</option>
+                  <option value="NON_VAT">Non-VAT</option>
+                </select>
               </FieldGroup>
               <FieldGroup label="Condo Service?">
                 <select
@@ -470,37 +528,7 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   onChange={(e) => setCondoService(e.target.value === "true")}
                 >
                   <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
-              </FieldGroup>
-              <FieldGroup label="Out-of-Town Trip?">
-                <select
-                  style={selectStyle}
-                  value={outOfTown ? "true" : "false"}
-                  onChange={(e) => setOutOfTown(e.target.value === "true")}
-                >
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
-              </FieldGroup>
-              <FieldGroup label="Night Delivery?">
-                <select
-                  style={selectStyle}
-                  value={nightDelivery ? "true" : "false"}
-                  onChange={(e) => setNightDelivery(e.target.value === "true")}
-                >
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
-              </FieldGroup>
-              <FieldGroup label="Long Distance?">
-                <select
-                  style={selectStyle}
-                  value={longDistance ? "true" : "false"}
-                  onChange={(e) => setLongDistance(e.target.value === "true")}
-                >
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
+                  <option value="true">Yes (+₱{settings.condoHandlingFee})</option>
                 </select>
               </FieldGroup>
               <FieldGroup label="Catering Service?">
@@ -510,7 +538,7 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   onChange={(e) => setCateringService(e.target.value === "true")}
                 >
                   <option value="false">No</option>
-                  <option value="true">Yes</option>
+                  <option value="true">Yes (+₱{settings.cateringHandlingFee})</option>
                 </select>
               </FieldGroup>
               <FieldGroup label="Additional Helper?">
@@ -520,21 +548,10 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   onChange={(e) => setAdditionalHelper(e.target.value === "true")}
                 >
                   <option value="false">No</option>
-                  <option value="true">Yes</option>
+                  <option value="true">Yes (+₱{settings.additionalHelperRate})</option>
                 </select>
               </FieldGroup>
-              <FieldGroup label="VAT Option">
-                <select
-                  style={selectStyle}
-                  value={vatOption}
-                  onChange={(e) => setVatOption(e.target.value as typeof vatOption)}
-                >
-                  <option value="VAT_INCLUSIVE">VAT-Inclusive</option>
-                  <option value="VAT_EXCLUSIVE">VAT-Exclusive</option>
-                  <option value="NON_VAT">Non-VAT</option>
-                </select>
-              </FieldGroup>
-              <FieldGroup label="Discount Amount (₱)" span2>
+              <FieldGroup label="Discount (₱)">
                 <input
                   type="number"
                   style={inputStyle}
@@ -542,6 +559,24 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
                   min={0}
                   step="0.01"
                   onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
+                />
+              </FieldGroup>
+              <FieldGroup
+                label="Manual Override Price (₱)"
+                hint="Leave blank to use the computed price. When set, this becomes the final quoted amount (VAT back-computed)."
+                span2
+              >
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={manualOverridePrice}
+                  min={0}
+                  step="0.01"
+                  placeholder="Leave blank to use computed price"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setManualOverridePrice(v === "" ? "" : parseFloat(v) || 0);
+                  }}
                 />
               </FieldGroup>
             </div>
@@ -557,9 +592,33 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings }: 
   );
 }
 
+function BillingToggleBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      data-btn
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: "8px 12px",
+        border: `1px solid ${active ? "var(--maroon)" : "var(--border)"}`,
+        background: active ? "var(--maroon)" : "white",
+        color: active ? "white" : "var(--ink)",
+        borderRadius: 6,
+        fontSize: 13,
+        fontWeight: 500,
+        cursor: "pointer",
+        fontFamily: "inherit",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+    <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
       <div
         style={{
           fontSize: 11,
