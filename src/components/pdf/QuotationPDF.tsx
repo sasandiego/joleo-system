@@ -76,6 +76,8 @@ const s = StyleSheet.create({
   totalLabel: { flex: 1, fontSize: 10.5, fontWeight: 700 },
   totalValue: { fontSize: 14, color: BRAND, textAlign: "right", minWidth: 90 },
 
+  serviceDesc: { fontSize: 8.5, color: "#333333", lineHeight: 1.5, marginBottom: 10 },
+
   termsTitle: {
     fontSize: 6.5,
     fontWeight: 700,
@@ -110,7 +112,7 @@ function vatLabel(opt: string): string {
 }
 
 function billingLabel(bt: string): string {
-  return bt === "EIGHT_HOUR" ? "8-Hour Service" : "Per-Trip Flat Rate";
+  return bt === "EIGHT_HOUR" ? "Per 8-Hour Service" : "Per-Trip Flat Rate";
 }
 
 interface QuotationPDFProps {
@@ -121,12 +123,14 @@ interface QuotationPDFProps {
   serviceType: string;
   pickupPoint: string;
   dropoffPoint: string;
-  routeArea: string | null;
+  scheduledDate: string | null;
+  scheduledStartTime: string | null;
   truckType: string | null;
   numberOfHelpers: number;
   pricing: PricingResult;
   createdAt: string;
   createdBy: string;
+  serviceDescription?: string | null;
 }
 
 export function QuotationPDF({
@@ -136,12 +140,14 @@ export function QuotationPDF({
   serviceType,
   pickupPoint,
   dropoffPoint,
-  routeArea,
+  scheduledDate,
+  scheduledStartTime,
   truckType,
   numberOfHelpers,
   pricing,
   createdAt,
   createdBy,
+  serviceDescription,
 }: QuotationPDFProps) {
   const { inputsSnapshot: inp } = pricing;
   const vatOpt = inp.vatOption;
@@ -194,14 +200,17 @@ export function QuotationPDF({
           </View>
         </View>
 
+        {serviceDescription ? <Text style={s.serviceDesc}>{serviceDescription}</Text> : null}
+
         {/* ── Client & Booking Details ── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Client & Booking Details</Text>
           {([
-            ["Quotation Date", createdAt,   "Service Type",  serviceType.replace(/_/g, " ")],
-            ["Client Name",    clientName,  "Pick-up Point", pickupPoint],
-            ["Contact Person", contactPerson ?? "—", "Drop-off Point", dropoffPoint],
-            ["Route / Area",   routeArea ?? "—",    "Est. Distance",  `${inp.estimatedDistanceKm} km`],
+            ["Quotation Date",  createdAt,                  "Service Type",       serviceType.replace(/_/g, " ")],
+            ["Scheduled Date",  scheduledDate ?? "—",       "Scheduled Start",    scheduledStartTime ?? "—"],
+            ["Client Name",     clientName,                 "Pick-up Point",      pickupPoint],
+            ["Contact Person",  contactPerson ?? "—",       "Drop-off Point",     dropoffPoint],
+            ["Est. Distance",   `${inp.estimatedDistanceKm} km`, "Drop-offs",     String(inp.numberOfDropoffs)],
           ] as [string, string, string, string][]).map(([l1, v1, l2, v2]) => (
             <View key={l1} style={s.gridRow}>
               <View style={s.gridCell}>
@@ -267,7 +276,7 @@ export function QuotationPDF({
 
           {tollAmt > 0 && (
             <View style={s.priceRow}>
-              <Text style={s.priceLabel}>Toll Pass-through</Text>
+              <Text style={s.priceLabel}>Toll</Text>
               <Text style={s.priceValue}>{fmt(tollAmt)}</Text>
             </View>
           )}

@@ -34,12 +34,13 @@ function pct4(v: Decimal): number {
  *   markup_total       = driverRate + helperRate + overheadRate
  *                        + (longDistanceRate IF distance ≥ threshold)
  *   revenue_net_of_vat = base_costs / (1 - markup_total)
- *   vat                = revenue_net_of_vat × vatRate  (unless NON_VAT)
- *   final              = revenue_net_of_vat + vat + toll (pass-through)
+ *   vat_base           = revenue_net_of_vat + toll  (toll is part of the VAT base)
+ *   vat                = vat_base × vatRate  (unless NON_VAT)
+ *   final              = vat_base + vat
  *
- * Toll is added AFTER the markup and VAT calc — true pass-through, no margin applied.
+ * Toll is included in the VAT base (BIR requirement confirmed by Gina).
  * `manualOverridePrice` (when set) becomes the final price; VAT is back-computed from
- * the override minus toll for BIR-compliant receipts.
+ * the override (which already covers toll) for BIR-compliant receipts.
  */
 export function computePrice(input: PricingInput, ctx: PricingContext): PricingResult {
   const { truckType, settings } = ctx;
@@ -180,18 +181,20 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   }
 
   // ── VAT (12% by default; locked at BIR rate) ─────────────────────────────
+  // Toll is included in the VAT base per BIR requirement.
+  const tollFee = d(input.tollFee);
+  const vatBase = revenueAfterDiscount.add(tollFee);
   let vatAmount: Decimal;
   if (input.vatOption === "NON_VAT") {
     vatAmount = d(0);
   } else {
     // For both VAT_INCLUSIVE and VAT_EXCLUSIVE, VAT amount is the same.
     // The difference is purely how it's displayed/labeled on the receipt.
-    vatAmount = revenueAfterDiscount.mul(vatRate);
+    vatAmount = vatBase.mul(vatRate);
   }
 
-  // ── Computed final price (revenue + VAT + toll pass-through) ─────────────
-  const tollFee = d(input.tollFee);
-  const computedFinalPrice = revenueAfterDiscount.add(vatAmount).add(tollFee);
+  // ── Computed final price (vat_base + vat) ────────────────────────────────
+  const computedFinalPrice = vatBase.add(vatAmount);
 
   // ── Manual override resolution (admin-set negotiated final) ──────────────
   let finalPrice: Decimal;
@@ -212,15 +215,15 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
       message: `Manual override active: final price ₱${dp2(finalPrice).toLocaleString("en-PH")} (computed ₱${dp2(computedFinalPrice).toLocaleString("en-PH")}).`,
     });
 
-    // Back-compute VAT from the override (override − toll is the gross-with-VAT)
-    const overrideExToll = finalPrice.sub(tollFee);
+    // Back-compute VAT from the override (override covers revenue + toll + VAT on both)
     if (input.vatOption === "NON_VAT") {
       effectiveVat = d(0);
-      effectiveRevenue = overrideExToll;
+      effectiveRevenue = finalPrice.sub(tollFee);
     } else {
-      // gross / (1 + vatRate) = net
-      effectiveRevenue = overrideExToll.div(d(1).add(vatRate));
-      effectiveVat = overrideExToll.sub(effectiveRevenue);
+      // finalPrice = (revenue + toll) × (1 + vatRate)  →  solve for revenue
+      const netIncToll = finalPrice.div(d(1).add(vatRate));
+      effectiveVat = finalPrice.sub(netIncToll);
+      effectiveRevenue = netIncToll.sub(tollFee);
     }
   } else {
     finalPrice = computedFinalPrice;

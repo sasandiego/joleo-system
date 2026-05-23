@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import type { PricingResult } from "@/features/pricing/types";
 import Link from "next/link";
+import { ClientMessageDrafter } from "@/components/quotes/ClientMessageDrafter";
+import { convertQuoteToBookingAction } from "@/actions/quotes";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -14,7 +16,7 @@ export default async function QuoteDetailPage({ params }: Props) {
   const quote = await db.quote.findUnique({
     where: { id },
     include: {
-      client: { select: { companyName: true, contactPerson: true } },
+      client: { select: { clientName: true, contactPerson: true } },
       createdBy: { select: { username: true } },
       booking: { select: { bookingNo: true, id: true } },
     },
@@ -70,6 +72,28 @@ export default async function QuoteDetailPage({ params }: Props) {
         >
           Edit
         </Link>
+        {!quote.booking && (
+          <form action={convertQuoteToBookingAction}>
+            <input type="hidden" name="quoteId" value={quote.id} />
+            <button
+              type="submit"
+              data-btn
+              style={{
+                background: "transparent",
+                border: "1px solid var(--maroon)",
+                color: "var(--maroon)",
+                borderRadius: 6,
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Convert to Booking
+            </button>
+          </form>
+        )}
         <a
           href={`/api/quotes/${quote.id}/pdf`}
           target="_blank"
@@ -96,8 +120,13 @@ export default async function QuoteDetailPage({ params }: Props) {
           <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
             <div style={sectionTitle}>Booking Information</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
-              <DetailRow label="Client" value={quote.client?.companyName ?? quote.walkInName ?? "Walk-in"} />
+              <DetailRow label="Client" value={quote.client?.clientName ?? quote.walkInName ?? "Walk-in"} />
               <DetailRow label="Service Type" value={quote.serviceType.replace(/_/g, " ")} />
+              <DetailRow
+                label="Scheduled Date"
+                value={quote.scheduledDate ? formatDate(quote.scheduledDate) : "—"}
+              />
+              <DetailRow label="Start Time" value={quote.scheduledStartTime ?? "—"} />
               <DetailRow label="Pick-up" value={quote.pickupPoint} />
               <DetailRow label="Drop-off" value={quote.dropoffPoint} />
               <DetailRow label="Distance" value={`${quote.estimatedDistanceKm} km`} />
@@ -113,43 +142,45 @@ export default async function QuoteDetailPage({ params }: Props) {
               <DetailRow label="Helpers" value={String(quote.numberOfHelpers)} />
               <DetailRow
                 label="Billing Type"
-                value={quote.tripBillingType === "EIGHT_HOUR" ? "8 Hours" : "Per Trip"}
+                value={quote.tripBillingType === "EIGHT_HOUR" ? "Per 8 Hours" : "Per Trip"}
               />
               <DetailRow label="Est. Hours" value={`${quote.estimatedHours ?? "—"} hrs`} />
             </div>
           </div>
 
-          {/* Service flags */}
-          <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
-            <div style={sectionTitle}>Service Flags</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {[
-                { label: "Condo Service", active: quote.condoService },
-                { label: "Catering", active: quote.cateringService },
-                { label: "Additional Helper", active: quote.additionalHelper },
-                {
-                  label: `Long Distance (≥ ${pricing.ratesSnapshot?.longDistanceThresholdKm ?? 50}km)`,
-                  active: pricing.isLongDistance,
-                },
-              ].map(({ label, active }) => (
-                <span
-                  key={label}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 20,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    background: active ? "var(--maroon-tint)" : "var(--surface)",
-                    color: active ? "var(--maroon)" : "var(--muted)",
-                    border: "1px solid",
-                    borderColor: active ? "var(--maroon)" : "var(--border)",
-                  }}
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
+          {/* Service flags — only show what's actually selected; hide the section entirely if none. */}
+          {(() => {
+            const activeFlags = [
+              quote.condoService && "Condo Service",
+              quote.cateringService && "Catering",
+              quote.additionalHelper && "Additional Helper",
+              pricing.isLongDistance && `Long Distance (≥ ${pricing.ratesSnapshot?.longDistanceThresholdKm ?? 50}km)`,
+            ].filter((f): f is string => Boolean(f));
+            if (activeFlags.length === 0) return null;
+            return (
+              <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+                <div style={sectionTitle}>Service Flags</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {activeFlags.map((label) => (
+                    <span
+                      key={label}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: "var(--maroon-tint)",
+                        color: "var(--maroon)",
+                        border: "1px solid var(--maroon)",
+                      }}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {quote.booking && (
             <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -165,6 +196,16 @@ export default async function QuoteDetailPage({ params }: Props) {
               </Link>
             </div>
           )}
+
+          <ClientMessageDrafter
+            clientName={quote.client?.clientName ?? quote.walkInName ?? "Client"}
+            quoteNo={quote.quoteNo}
+            serviceType={quote.serviceType}
+            pickupPoint={quote.pickupPoint}
+            dropoffPoint={quote.dropoffPoint}
+            amount={quote.finalPrice.toNumber()}
+            vatOption={quote.vatOption}
+          />
         </div>
 
         {/* Right: pricing snapshot */}
@@ -242,7 +283,7 @@ export default async function QuoteDetailPage({ params }: Props) {
                     />
                   )}
                   {pricing.tollFee > 0 && (
-                    <Row label="Toll (pass-through)" amount={pricing.tollFee} muted />
+                    <Row label="Toll" amount={pricing.tollFee} muted />
                   )}
                   {hasOverride && (
                     <tr>

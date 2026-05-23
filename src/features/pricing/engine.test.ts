@@ -284,12 +284,12 @@ describe("Pricing engine — VAT modes", () => {
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
     expect(result.vatAmount).toBe(0);
-    expect(result.finalPrice).toBe(result.revenueAfterDiscount);
+    expect(result.finalPrice).toBe(result.revenueAfterDiscount + result.tollFee);
   });
 });
 
-describe("Pricing engine — toll pass-through", () => {
-  it("toll is added AFTER VAT, with no markup", () => {
+describe("Pricing engine — toll in VAT base", () => {
+  it("toll is included in the VAT base (toll × 1.12 added to final)", () => {
     const baseline = computePrice(buildInput({ tollFee: 0 }), {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
@@ -298,8 +298,10 @@ describe("Pricing engine — toll pass-through", () => {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
-    expect(withToll.finalPrice - baseline.finalPrice).toBeCloseTo(500, 2);
-    expect(withToll.vatAmount).toBe(baseline.vatAmount);
+    // toll of 500 + 12% VAT on toll = 560 added to final
+    expect(withToll.finalPrice - baseline.finalPrice).toBeCloseTo(560, 2);
+    // VAT amount increases by 500 × 12% = 60
+    expect(withToll.vatAmount - baseline.vatAmount).toBeCloseTo(60, 2);
   });
 });
 
@@ -335,7 +337,7 @@ describe("Pricing engine — manual override", () => {
     expect(result.effectiveVatAmount).toBe(600);
   });
 
-  it("override + toll back-computes VAT from (override − toll)", () => {
+  it("override + toll back-computes VAT from full override (toll in VAT base)", () => {
     const result = computePrice(
       buildInput({ manualOverridePrice: 6000, tollFee: 400 }),
       {
@@ -343,8 +345,9 @@ describe("Pricing engine — manual override", () => {
         settings: buildSettings({ distanceRatePerKm: 0 }),
       },
     );
-    expect(result.effectiveRevenueNetOfVat).toBe(5000);
-    expect(result.effectiveVatAmount).toBe(600);
+    // 6000 / 1.12 = 5357.14 (net inc toll); minus 400 toll = 4957.14 revenue
+    expect(result.effectiveRevenueNetOfVat).toBe(4957.14);
+    expect(result.effectiveVatAmount).toBe(642.86);
   });
 });
 
