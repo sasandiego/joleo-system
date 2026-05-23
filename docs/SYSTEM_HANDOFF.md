@@ -1,10 +1,10 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-22 — 6-phase pricing engine refactor complete: new BillingType, bottom-up revenue formula, Pricing Config UI, Quote Builder/Editor updates, PDF cleanup, migration applied
+2026-05-23 — Bug fixes (quotes/bookings date display, Decimal serialization in trucks page) + booking UX (truck type visibility in assignment, quoted truck type in detail card, clickable booking IDs)
 
 ## Current System State
-Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green. All Phase 1 milestones (M1–M10) complete + 6-phase pricing engine refactor complete, all on `main`. Full feature set: auth, masterlists CRUD, pricing config, pricing engine (bottom-up revenue model), quote builder + editor + PDF, bookings with FSM, truck availability calendar, live dashboard. Login with `jess` / `admin123` (or credentials in `.env.local`).
+Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green. All Phase 1 milestones (M1–M10) + 6-phase pricing engine refactor + Phase 1.5 (Clients & AI) complete, all on `main`. Full feature set: auth, masterlists CRUD, pricing config, pricing engine (bottom-up), quote builder + editor + PDF with AI generation, bookings with FSM + convert-from-quote, truck availability calendar, live dashboard, sidebar Logout. Login with `vyela` / `admin`, `gina` / `admin`, or `shem` / `admin`.
 
 **Public URL:** `https://joleo.sas-agent.co.uk` (via the existing Nucbox cloudflared tunnel, ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`). Dev server bound to `*:3000`, accessible via LAN (`192.168.254.166`), Tailscale (`100.87.42.111`), and the public hostname. `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` set in `.env.local` so post-login redirects resolve correctly.
 
@@ -183,6 +183,89 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - Source: `docs/356378784_599377255674979_8027307442482878578_n.jpg`
 - Generated via `sharp().trim()` then `.resize()` to 32×32 and 180×180
 
+### Decision: Client model — 3-way type + auto-gen codes (2026-05-22)
+- Renamed `Client.companyName` → `Client.clientName` (holds person OR trade OR company name)
+- Renamed `Client.businessType` → `Client.type`
+- Replaced enum `ClientBusinessType (INDIVIDUAL | CORPORATION)` with `ClientType (INDIVIDUAL_PERSON | INDIVIDUAL_BUSINESS | CORPORATION_BUSINESS)`
+- Rationale: PH context has both walk-in private persons (one-off house movers, no TIN) AND sole proprietorships (e.g. DESKARTE DESIGN — has TIN and trade name). Lumping them as "INDIVIDUAL" lost that distinction.
+- Form adapts per type: name label ("Full Name" / "Trade Name" / "Company Name"), TIN shown only for business types, address label varies. Contact Person shown for all three (the person-in-charge can differ from the client).
+- Client codes are now system-generated `CL-NNNN` (4-digit zero-padded, sequential by `createdAt`). Read-only in the dialog; never editable. The `upsertClientAction` generates the code on create and never touches it on update.
+- Migration: `20260522160000_client_type_three_way` (existing INDIVIDUAL → INDIVIDUAL_BUSINESS, CORPORATION → CORPORATION_BUSINESS; old `BB-C`/`CASH-NNN`/`LV-001` codes wiped and re-assigned `CL-0001`…`CL-0034`)
+
+### Decision: Quote schema — separate notes vs serviceDescription + required schedule (2026-05-22)
+- `Quote.notes` is admin-only internal (client requests, ops reminders). Never on PDF.
+- `Quote.serviceDescription` is the client-facing paragraph on the PDF. AI-generated from Notes + other form fields.
+- `Quote.scheduledDate` is REQUIRED on the form (nullable in DB for backward compat). `Quote.scheduledStartTime` optional.
+- Convert-to-booking now copies these into the Booking row instead of defaulting `scheduledDate` to today.
+- Migration: `20260522150000_quote_notes_and_schedule`
+
+### Decision: Route/Area removed from UI, kept in DB (2026-05-22)
+- Dropped from Quote Builder form, PDF, sidebar nav
+- `/route-areas` admin page and `Client.routeAreaId` schema column still exist (zero-risk parking; can revisit if zone-based pricing/reporting becomes useful)
+- Reason: never drove pricing (estimatedDistanceKm + longDistanceThresholdKm did all the work). Pick-up + Drop-off free text already conveyed the route on PDF.
+
+### Decision: AI features via LiteLLM gateway "smart" alias → Haiku 4.5 (2026-05-22)
+- `src/lib/ai.ts` — pure `fetch` wrapper for OpenAI-compatible LiteLLM endpoint. No SDK.
+- Env: `LITELLM_BASE_URL=http://localhost:4000`, `LITELLM_API_KEY=sk-litellm-m5agent-sven`, `LITELLM_MODEL=smart`
+- The `smart` alias is configured in `/home/agent/gateway/litellm_config.yaml` → `claude-haiku-4-5-20251001`. Other aliases available: `fast`, `smartest`, `gemini-fast`, `gemini-smart`, `openai-fast`, `openai-smart`, `agentic`.
+- Two server actions in `src/actions/ai-quotes.ts`:
+  - `generateServiceDescriptionAction` — 2–3 sentence client-facing description from service/route/truck/helpers/billing/notes. Notes get explicit "translate into client-appropriate language; do not quote verbatim" instruction so internal phrasing stays internal.
+  - `generateClientMessageAction` — 3–4 sentence SMS/Viber draft with quote number, route, total, confirm/reply prompt.
+- All AI actions have try/catch fallback returning `{ error: "...you can type it manually" }` so failures don't block workflow.
+
+### Decision: Service Description placement = right panel above Price Breakdown (2026-05-22)
+- Was inside Section A's "Booking Information" block originally. Awkward because the AI consumes Section B (Truck & Crew) data too, so users had to scroll down then back up to generate.
+- Moved to the sticky right column above PriceBreakdownPanel. Form flows naturally top-to-bottom on left (A → B → C), then right panel collects the generated description and shows live pricing.
+- Notes (internal) stays in Section A so the admin keeps it with the other booking-context fields.
+
+### Decision: Convert to Booking from quote detail page (2026-05-22)
+- `convertQuoteToBookingAction(formData)` in `src/actions/quotes.ts`
+- Signature is `Promise<void>` — uses `throw new Error(...)` instead of `return { error }` (server-component form actions can't return objects). Errors hit Next.js's error boundary.
+- Button on `/quotes/[id]` header between Edit and Download PDF, hidden once `quote.booking` exists
+- If a booking already exists for this quote, redirects to it (no duplicate)
+- Refuses to convert if `scheduledDate` is null with a clear error
+
+### Decision: Client form validation — live sanitize + onBlur reformat + Zod (2026-05-22)
+- **Live (`onChange`):** `sanitizePhone()` strips everything except `0-9 + - space ( )` from mobile/landline; `sanitizeEmail()` strips whitespace from email. Letters can't even appear in phone fields.
+- **Blur (`onBlur`):** `formatMobileOnBlur()` auto-normalizes recognised PH shapes — `09171234567` → `0917-123-4567`, `+639171234567` → `+63 917 123 4567`. `formatLandlineOnBlur()` trims and collapses whitespace. Email lowercases + trims.
+- **Server (Zod):** `PH_MOBILE_RE = /^(?:\+?63|0)9(?:[\s-]?\d){9}$/`. `PH_LANDLINE_RE = /^[\d\s\-+()]{7,18}$/`. Email via `z.string().email()`.
+- **HTML `pattern` attribute removed** — modern browsers compile it with the `/v` regex flag which has stricter character-class rules (`(`, `)`, hyphen-positioning). Tooltips via `title=""` still show expected format. The 3-layer defense above is sufficient.
+
+### Decision: React 19 form-reset workarounds in ClientDialog (2026-05-22)
+- `<form action={serverAction}>` calls native `form.reset()` after the action completes, even on error.
+- For text inputs: convert to controlled state (`value={state}` + `onChange`). State survives the reset; on next render React re-fills the DOM from state.
+- For `<select>`: same controlled approach doesn't quite work — there's a reconciliation quirk where the select value can still revert. Workaround: decouple the select from form submission via a hidden input (`<input type="hidden" name="paymentTerms" value={state} />`) and remove `name=""` from the select so it's purely UI. The hidden input always renders fresh from state.
+- `useEffect` re-syncs all state from `client?` props on dialog open (`[open, client?.id]` deps) — Add reopens clean; Edit reopens with current data.
+
+### Decision: Radix Dialog `aria-describedby={undefined}` on all dialogs (2026-05-22)
+- Radix v1+ requires either a `<Dialog.Description>` child or explicit opt-out via `aria-describedby={undefined}` on `<Dialog.Content>`. Otherwise prints a console warning.
+- Applied to all 5 dialogs: Client, Driver, Helper, Route Area, Reset Password.
+
+### Decision: Quotes list Date & Time column shows scheduled date, not createdAt (2026-05-23)
+- `quotes/page.tsx` serializes `scheduledDate` and `scheduledStartTime` alongside `createdAt`
+- `QuoteListClient` renders scheduled date + time; falls back to `createdAt` for pre-Phase-1.5 quotes that have no `scheduledDate`
+- `formatSchedule()` helper in `QuoteListClient` handles HH:MM → 12-hour conversion client-side
+
+### Decision: Bookings list — clickable Booking ID + time display (2026-05-23)
+- `bookingNo` is now a maroon Link to `/bookings/[id]` (same pattern as Quote No. in quotes list)
+- Date column shows `scheduledStartTime` as a muted second line when set
+
+### Decision: Booking Detail — quoted truck type visible + assignment guard (2026-05-23)
+- Booking serialization includes `quotedTruckTypeId` and `quotedTruckTypeLabel` (label resolved server-side from the trucks array; null if booking has no quote or no active truck of that type exists)
+- "Quoted Truck Type" DetailRow added to the Booking Information card — always visible before the assignment form
+- Truck dropdown options show: `{code} — {plateNo} · {truckTypeLabel}`
+- ⚠ mismatch warning shown under the dropdown only when the currently-assigned truck's type ≠ quoted type
+
+### Decision: `trucks/page.tsx` must explicitly serialize TruckType Decimal fields (2026-05-23)
+- `db.truckType.findMany()` returns `eightHourBaseRate`, `perTripBaseRate`, `dailyRate`, `excessHourRate` as Prisma Decimal class instances
+- These were being passed raw to `TruckListClient` ("use client"), causing "Only plain objects can be passed to Client Components — Decimal objects are not supported" RSC error
+- Fix: explicit `.map()` with `.toNumber()` for all Decimal fields on both `trucks` and `truckTypes` arrays before passing to client; `TruckListClient` types updated from `unknown` → `number`
+- All other pages (drivers, helpers, route-areas) were already serializing correctly; trucks was the only miss
+
+### Decision: Sidebar Logout button (2026-05-22)
+- `signOutAction` existed in `src/actions/auth.ts` but had no UI trigger. Added a small "Logout" button to the sidebar footer next to the user info card.
+- Uses `<form action={signOutAction}>` — works from a client component because signOutAction is "use server".
+
 ---
 
 ## Active Gotchas
@@ -197,20 +280,29 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - pnpm 11 requires `allowBuilds:` in `pnpm-workspace.yaml` with **booleans**, not placeholder strings
 - cloudflared cert.pem on the Nucbox is only authorized for the aplaya-dev.cc zone — create sas-agent.co.uk CNAMEs via Cloudflare dashboard manually
 - sudo on the Nucbox needs a real TTY — Claude Code's Bash tool cannot prompt for password
+- **JWT session staleness:** Auth.js v5 stores user.id in the JWT cookie. If the User table is reseeded, old browser sessions reference dead user IDs → `Foreign key constraint violated on Quote_createdById_fkey` on save. Fix: user must log out and back in (now possible via the new sidebar Logout button).
+- **HTML5 `pattern` attribute** compiles with `/v` flag in modern browsers: `(`, `)`, and certain hyphen positions inside character classes throw `Invalid character in character class`. Use live JS sanitization + onBlur reformat + server-side Zod regex instead.
+- **React 19 form-action reset behavior:** uncontrolled inputs lose their values after `<form action={serverAction}>` completes (even on error). Controlled state survives — but native `<select>` still has reconciliation quirks; use hidden input + UI-only select.
+- **Schema changes need dev-server restart:** `prisma generate` updates the client on disk, but Turbopack caches the OLD module in memory. Renaming/removing fields → kill `next dev`, `rm -rf .next`, restart.
+- **`@react-pdf/renderer` italic:** `fontStyle: "italic"` requires an italic font variant registered via `Font.register`. We only ship DejaVu Regular and Bold, so do NOT use `fontStyle: "italic"` anywhere in `QuotationPDF.tsx` unless you add `DejaVuSans-Oblique.ttf` to `public/fonts/` and register it.
 
 ---
 
-## Session Continuity (2026-05-22)
-- Last worked on: Verified 6-phase pricing engine refactor (previous session was cut off; this session confirmed all phases clean — TSC 0 errors, 30/30 tests, all files present)
-- **Immediate next step:** Live browser test — Pricing Config live preview, New Quote billing-type toggle, and PDF download at `https://joleo.sas-agent.co.uk`
-- **Open item:** `docs/Joleo_Update_Guide.md` still has the old worked-example ₱ figure; the correct value is ₱5,932.14 (confirmed by test). Update the guide doc to match.
-- **Not blocked:** All code is clean. No ISE, no type errors.
+## Session Continuity (2026-05-23)
+- Last worked on: Bug fixes + UX polish — quotes list date display (was showing `createdAt` instead of `scheduledDate`), bookings list clickable IDs and time display, booking detail truck type visibility (quoted type in info card, type labels in dropdown, mismatch warning), Decimal serialization fix in `trucks/page.tsx`.
+- **Immediate next step (when Shem returns):** Live browser test the full flow — create client (all three types) → create quote with AI-generated description → convert to booking → assign truck (verify quoted type shows and mismatch warning works) → download PDF. Plus the multi-user Vyela/Gina walkthrough on `https://joleo.sas-agent.co.uk`.
+- **Open items:**
+  - `docs/Joleo_Update_Guide.md` worked-example ₱ figure still outdated; correct value is ₱5,932.14.
+  - Walk-in `walkInName` column still on Quote/Booking from earlier walk-in removal — unused but harmless.
+  - Italic Service Description on PDF is a minor downgrade; can re-add by registering `DejaVuSans-Oblique.ttf`.
+- **Not blocked:** TSC clean, 30/30 tests pass, dev server healthy on `localhost:3000`.
 - Do NOT touch:
   - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox
   - Font system (must stay on Google Fonts CDN per user directive)
   - `import React from "react"` in `QuotationPDF.tsx` (required by @react-pdf/renderer reconciler)
   - DejaVu font files in `public/fonts/`
   - `pnpm-workspace.yaml` `allowBuilds:` booleans
+  - HTML `pattern` attribute — re-adding it crashes modern browsers under `/v` flag
 
 ---
 

@@ -7,8 +7,8 @@ export default async function NewBookingPage() {
   const [clients, trucks, drivers] = await Promise.all([
     db.client.findMany({
       where: { isActive: true },
-      orderBy: { companyName: "asc" },
-      select: { id: true, companyName: true },
+      orderBy: { clientName: "asc" },
+      select: { id: true, clientName: true },
     }),
     db.truck.findMany({
       where: { status: "ACTIVE" },

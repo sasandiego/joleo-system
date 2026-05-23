@@ -9,6 +9,32 @@ import { todayManila } from "@/lib/format";
 import { z } from "zod";
 import Decimal from "decimal.js";
 
+async function checkDriverConflict(driverId: string, date: Date, excludeBookingId?: string) {
+  const driver = await db.driver.findUnique({
+    where: { id: driverId },
+    select: { fullName: true, status: true },
+  });
+  if (!driver) throw new Error("Driver not found.");
+  if (driver.status !== "ACTIVE") throw new Error(`Driver ${driver.fullName} is not active.`);
+
+  const dateStr = date.toISOString().slice(0, 10);
+  const conflict = await db.booking.findFirst({
+    where: {
+      driverId,
+      scheduledDate: date,
+      status: { notIn: ["CANCELLED"] },
+      ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+    },
+    select: { bookingNo: true },
+  });
+
+  if (conflict) {
+    throw new Error(
+      `Driver ${driver.fullName} is already assigned to booking ${conflict.bookingNo} on ${dateStr}.`
+    );
+  }
+}
+
 async function checkTruckConflict(truckId: string, date: Date, excludeBookingId?: string) {
   const truck = await db.truck.findUnique({
     where: { id: truckId },
@@ -58,10 +84,12 @@ export async function transitionBookingAction(
     return { error: new BookingTransitionError(booking.status, toStatus).message };
   }
 
-  // Conflict check when confirming a truck assignment
-  if (toStatus === "CONFIRMED" && booking.truckId && booking.scheduledDate) {
+  // Conflict checks when confirming
+  if (toStatus === "CONFIRMED" && booking.scheduledDate) {
     try {
-      await checkTruckConflict(booking.truckId, booking.scheduledDate, bookingId);
+      if (booking.truckId) await checkTruckConflict(booking.truckId, booking.scheduledDate, bookingId);
+      const fullBooking = await db.booking.findUnique({ where: { id: bookingId }, select: { driverId: true } });
+      if (fullBooking?.driverId) await checkDriverConflict(fullBooking.driverId, booking.scheduledDate, bookingId);
     } catch (e) {
       return { error: (e as Error).message };
     }
@@ -107,6 +135,7 @@ const assignSchema = z.object({
   scheduledStartTime: z.string().optional(),
   scheduledEndTime: z.string().optional(),
   notes: z.string().optional(),
+  recomputedAmount: z.coerce.number().positive().optional(),
 });
 
 export async function updateBookingAssignmentAction(
@@ -128,7 +157,12 @@ export async function updateBookingAssignmentAction(
   const data = parsed.data;
   const booking = await db.booking.findUnique({
     where: { id: data.bookingId },
-    select: { status: true, scheduledDate: true },
+    select: {
+      status: true,
+      scheduledDate: true,
+      quotedAmount: true,
+      truck: { select: { truckType: { select: { label: true } } } },
+    },
   });
   if (!booking) return { error: "Booking not found." };
   if (booking.status === "COMPLETED" || booking.status === "CANCELLED") {
@@ -137,14 +171,26 @@ export async function updateBookingAssignmentAction(
 
   const scheduledDate = data.scheduledDate ? new Date(data.scheduledDate) : undefined;
 
-  // Conflict check when assigning truck + date
-  if (data.truckId && scheduledDate) {
+  // Conflict checks when assigning truck / driver + date
+  if (scheduledDate) {
     try {
-      await checkTruckConflict(data.truckId, scheduledDate, data.bookingId);
+      if (data.truckId) await checkTruckConflict(data.truckId, scheduledDate, data.bookingId);
+      if (data.driverId) await checkDriverConflict(data.driverId, scheduledDate, data.bookingId);
     } catch (e) {
       return { error: (e as Error).message };
     }
   }
+
+  // Look up new truck type label + current username for audit log
+  const newTruck = data.truckId && data.recomputedAmount !== undefined
+    ? await db.truck.findUnique({
+        where: { id: data.truckId },
+        select: { truckType: { select: { label: true } } },
+      })
+    : null;
+  const actingUser = data.recomputedAmount !== undefined
+    ? await db.user.findUnique({ where: { id: session.user.id }, select: { username: true } })
+    : null;
 
   // Parse helper IDs from formData (multi-value)
   const helperIds = formData.getAll("helperId") as string[];
@@ -160,6 +206,9 @@ export async function updateBookingAssignmentAction(
           scheduledStartTime: data.scheduledStartTime ?? null,
           scheduledEndTime: data.scheduledEndTime ?? null,
           notes: data.notes ?? null,
+          ...(data.recomputedAmount !== undefined
+            ? { quotedAmount: new Decimal(data.recomputedAmount) }
+            : {}),
         },
       });
 
@@ -167,6 +216,26 @@ export async function updateBookingAssignmentAction(
         await tx.bookingHelper.deleteMany({ where: { bookingId: data.bookingId } });
         await tx.bookingHelper.createMany({
           data: helperIds.map((helperId) => ({ bookingId: data.bookingId, helperId })),
+        });
+      }
+
+      if (data.recomputedAmount !== undefined) {
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: "BOOKING_PRICE_UPDATED",
+            entityType: "Booking",
+            entityId: data.bookingId,
+            before: {
+              quotedAmount: booking.quotedAmount.toNumber(),
+              truckType: booking.truck?.truckType?.label ?? null,
+            },
+            after: {
+              quotedAmount: data.recomputedAmount,
+              truckType: newTruck?.truckType?.label ?? null,
+              username: actingUser?.username ?? session.user.id,
+            },
+          },
         });
       }
     });
@@ -222,12 +291,11 @@ export async function createBookingAction(
   const data = parsed.data;
   const scheduledDate = new Date(data.scheduledDate);
 
-  if (data.truckId) {
-    try {
-      await checkTruckConflict(data.truckId, scheduledDate);
-    } catch (e) {
-      return { error: (e as Error).message };
-    }
+  try {
+    if (data.truckId) await checkTruckConflict(data.truckId, scheduledDate);
+    if (data.driverId) await checkDriverConflict(data.driverId, scheduledDate);
+  } catch (e) {
+    return { error: (e as Error).message };
   }
 
   const bookingNo = await generateBookingNo();

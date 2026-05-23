@@ -10,6 +10,7 @@ interface BookingSummary {
   bookingNo: string;
   status: string;
   scheduledDate: string;
+  scheduledStartTime: string | null;
   clientName: string;
   pickup: string;
   dropoff: string;
@@ -268,7 +269,14 @@ export function BookingListClient({
                 <tr key={b.id} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ fontWeight: 600, fontFamily: "var(--font-mono)", fontSize: 12 }}>
-                      {b.bookingNo}
+                      <Link
+                        href={`/bookings/${b.id}`}
+                        style={{ color: "var(--maroon)", textDecoration: "none" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                      >
+                        {b.bookingNo}
+                      </Link>
                     </div>
                     {b.quoteNo && (
                       <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
@@ -278,6 +286,16 @@ export function BookingListClient({
                   </td>
                   <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                     {formatDate(b.scheduledDate)}
+                    {b.scheduledStartTime && (
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                        {(() => {
+                          const [h, m] = b.scheduledStartTime!.split(":").map(Number);
+                          const period = h >= 12 ? "PM" : "AM";
+                          const hour12 = h % 12 || 12;
+                          return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
+                        })()}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "12px 16px" }}>{b.clientName}</td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--muted)" }}>

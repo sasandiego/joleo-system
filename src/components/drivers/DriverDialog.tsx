@@ -97,6 +97,7 @@ export function DriverDialog({ mode, driver }: DriverDialogProps) {
           }}
         />
         <Dialog.Content
+          aria-describedby={undefined}
           style={{
             position: "fixed",
             top: "50%",

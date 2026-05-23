@@ -112,6 +112,7 @@ export function RouteAreaDialog({ mode, routeArea }: RouteAreaDialogProps) {
           }}
         />
         <Dialog.Content
+          aria-describedby={undefined}
           style={{
             position: "fixed",
             top: "50%",

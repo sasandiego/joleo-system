@@ -231,7 +231,7 @@ const ROUTE_AREAS = [
 // Source: Joleo_Transport_Operations_Master_Sheet — CLIENTS sheet (5 sample clients)
 const CLIENTS = [
   {
-    companyName: "Sample Client A",
+    clientName: "Sample Client A",
     contactPerson: "Maria Santos",
     mobile: "0917-000-0001",
     email: null,
@@ -239,7 +239,7 @@ const CLIENTS = [
     notes: null,
   },
   {
-    companyName: "Sample Client B",
+    clientName: "Sample Client B",
     contactPerson: "Jose Reyes",
     mobile: "0918-000-0002",
     email: null,
@@ -247,7 +247,7 @@ const CLIENTS = [
     notes: null,
   },
   {
-    companyName: "Sample Client C",
+    clientName: "Sample Client C",
     contactPerson: "Ana Cruz",
     mobile: "0919-000-0003",
     email: null,
@@ -255,7 +255,7 @@ const CLIENTS = [
     notes: null,
   },
   {
-    companyName: "Sample Client D",
+    clientName: "Sample Client D",
     contactPerson: "Carlos Mendez",
     mobile: "0920-000-0004",
     email: null,
@@ -263,7 +263,7 @@ const CLIENTS = [
     notes: null,
   },
   {
-    companyName: "Sample Client E",
+    clientName: "Sample Client E",
     contactPerson: null,
     mobile: "0921-000-0005",
     email: null,
@@ -426,7 +426,7 @@ async function main() {
   console.log("  → Clients");
   for (const c of CLIENTS) {
     const existing = await prisma.client.findFirst({
-      where: { companyName: c.companyName },
+      where: { clientName: c.clientName },
     });
     if (!existing) {
       await prisma.client.create({ data: { ...c } });

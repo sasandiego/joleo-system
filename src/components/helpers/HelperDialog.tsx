@@ -108,6 +108,7 @@ export function HelperDialog({ mode, helper }: HelperDialogProps) {
           }}
         />
         <Dialog.Content
+          aria-describedby={undefined}
           style={{
             position: "fixed",
             top: "50%",

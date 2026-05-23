@@ -72,6 +72,7 @@ export function ResetPasswordDialog({ userId, userName }: ResetPasswordDialogPro
           }}
         />
         <Dialog.Content
+          aria-describedby={undefined}
           style={{
             position: "fixed",
             top: "50%",

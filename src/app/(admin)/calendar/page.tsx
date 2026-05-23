@@ -43,7 +43,7 @@ export default async function CalendarPage({ searchParams }: Props) {
         truckId: true,
         pickupPoint: true,
         dropoffPoint: true,
-        client: { select: { companyName: true } },
+        client: { select: { clientName: true } },
         walkInName: true,
       },
     }),
@@ -66,7 +66,7 @@ export default async function CalendarPage({ searchParams }: Props) {
     status: b.status,
     scheduledDate: b.scheduledDate.toISOString(),
     truckId: b.truckId!,
-    clientName: b.client?.companyName ?? b.walkInName ?? "Walk-in",
+    clientName: b.client?.clientName ?? b.walkInName ?? "Walk-in",
     pickup: b.pickupPoint,
     dropoff: b.dropoffPoint,
   }));

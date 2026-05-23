@@ -49,6 +49,12 @@ enum BillingType {
   PER_TRIP
 }
 
+enum ClientType {
+  INDIVIDUAL_PERSON
+  INDIVIDUAL_BUSINESS
+  CORPORATION_BUSINESS
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -124,16 +130,21 @@ model Helper {
 }
 
 model Client {
-  id            String   @id @default(cuid())
-  companyName   String
+  id            String     @id @default(cuid())
+  clientCode    String?    @unique
+  clientName    String
+  type          ClientType @default(INDIVIDUAL_BUSINESS)
   contactPerson String?
   mobile        String?
+  landline      String?
   email         String?
-  paymentTerms  String? // "30 DAYS", "1 WEEK"
+  tin           String?
+  address       String?            @db.Text
+  paymentTerms  String?
   notes         String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   quotes   Quote[]
   bookings Booking[]
@@ -232,7 +243,12 @@ model Quote {
   finalPrice          Decimal  @db.Decimal(12, 2)
   manualOverridePrice Decimal? @db.Decimal(12, 2)
 
-  notes String? @db.Text
+  serviceDescription String? @db.Text
+  notes              String? @db.Text
+
+  // Schedule — when the move will happen. Date is captured at quote time, time is optional.
+  scheduledDate      DateTime? @db.Date
+  scheduledStartTime String?   // "HH:MM" 24-hour, e.g. "07:00"
 
   createdById String
   createdBy   User     @relation("QuoteCreator", fields: [createdById], references: [id])

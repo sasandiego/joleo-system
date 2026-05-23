@@ -30,7 +30,10 @@ const quoteSchema = z.object({
   discountAmount: z.coerce.number().min(0).default(0),
   manualOverridePrice: z.coerce.number().min(0).optional(),
   vatOption: z.enum(["VAT_INCLUSIVE", "VAT_EXCLUSIVE", "NON_VAT"]),
+  serviceDescription: z.string().optional(),
   notes: z.string().optional(),
+  scheduledDate: z.string().min(1, "Scheduled date is required"),
+  scheduledStartTime: z.string().optional(),
   convertToBooking: z.coerce.boolean().default(false),
 });
 
@@ -150,7 +153,10 @@ export async function saveQuoteAction(
         pricingSnapshot: pricingResult as object,
         finalPrice: new Decimal(pricingResult.finalPrice),
         manualOverridePrice: data.manualOverridePrice ? new Decimal(data.manualOverridePrice) : null,
+        serviceDescription: data.serviceDescription ?? null,
         notes: data.notes ?? null,
+        scheduledDate: new Date(data.scheduledDate),
+        scheduledStartTime: data.scheduledStartTime || null,
         createdById: session.user.id,
       },
     });
@@ -164,14 +170,14 @@ export async function saveQuoteAction(
           status: "DRAFT",
           quoteId: quoteId,
           clientId: data.clientId,
-          scheduledDate: new Date(),
+          scheduledDate: new Date(data.scheduledDate),
+          scheduledStartTime: data.scheduledStartTime || null,
           pickupPoint: data.pickupPoint,
           dropoffPoint: data.dropoffPoint,
           estimatedDistanceKm: data.estimatedDistanceKm,
           routeAreaId: data.routeAreaId ?? null,
           tripBillingType: data.tripBillingType,
           quotedAmount: new Decimal(pricingResult.finalPrice),
-          notes: data.notes ?? null,
           createdById: session.user.id,
         },
       });
@@ -268,7 +274,10 @@ export async function updateQuoteAction(
         pricingSnapshot: pricingResult as object,
         finalPrice: new Decimal(pricingResult.finalPrice),
         manualOverridePrice: data.manualOverridePrice ? new Decimal(data.manualOverridePrice) : null,
+        serviceDescription: data.serviceDescription ?? null,
         notes: data.notes ?? null,
+        scheduledDate: new Date(data.scheduledDate),
+        scheduledStartTime: data.scheduledStartTime || null,
       },
     });
 
@@ -288,7 +297,7 @@ export async function updateQuoteAction(
           truckTypeId: existing.truckTypeId,
           pickupPoint: existing.pickupPoint,
           dropoffPoint: existing.dropoffPoint,
-          notes: existing.notes,
+          serviceDescription: existing.serviceDescription,
         },
         after: {
           finalPrice: pricingResult.finalPrice,
@@ -299,7 +308,7 @@ export async function updateQuoteAction(
           truckTypeId: data.truckTypeId,
           pickupPoint: data.pickupPoint,
           dropoffPoint: data.dropoffPoint,
-          notes: data.notes ?? null,
+          serviceDescription: data.serviceDescription ?? null,
         },
       },
     });
@@ -309,4 +318,48 @@ export async function updateQuoteAction(
 
   revalidatePath(`/quotes/${data.id}`);
   redirect(`/quotes/${data.id}`);
+}
+
+export async function convertQuoteToBookingAction(formData: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated.");
+
+  const quoteId = formData.get("quoteId") as string | null;
+  if (!quoteId) throw new Error("Quote ID required.");
+
+  const quote = await db.quote.findUnique({
+    where: { id: quoteId },
+    include: { booking: { select: { id: true } } },
+  });
+  if (!quote) throw new Error("Quote not found.");
+  if (quote.booking) {
+    // Already converted — just send the user to the existing booking.
+    redirect(`/bookings/${quote.booking.id}`);
+  }
+  if (!quote.scheduledDate) {
+    throw new Error("Quote is missing a scheduled date. Edit the quote to add one before converting.");
+  }
+
+  const bookingNo = await generateBookingNo();
+  const booking = await db.booking.create({
+    data: {
+      bookingNo,
+      status: "DRAFT",
+      quoteId: quote.id,
+      clientId: quote.clientId,
+      scheduledDate: quote.scheduledDate,
+      scheduledStartTime: quote.scheduledStartTime,
+      pickupPoint: quote.pickupPoint,
+      dropoffPoint: quote.dropoffPoint,
+      estimatedDistanceKm: quote.estimatedDistanceKm,
+      routeAreaId: quote.routeAreaId,
+      tripBillingType: quote.tripBillingType,
+      quotedAmount: quote.finalPrice,
+      createdById: session.user.id,
+    },
+  });
+
+  revalidatePath(`/quotes/${quote.id}`);
+  revalidatePath("/bookings");
+  redirect(`/bookings/${booking.id}`);
 }

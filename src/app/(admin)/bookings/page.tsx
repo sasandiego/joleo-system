@@ -5,7 +5,7 @@ export default async function BookingsPage() {
   const bookings = await db.booking.findMany({
     orderBy: [{ scheduledDate: "desc" }, { createdAt: "desc" }],
     include: {
-      client: { select: { companyName: true } },
+      client: { select: { clientName: true } },
       truck: { select: { code: true, plateNo: true } },
       driver: { select: { fullName: true } },
       quote: { select: { quoteNo: true } },
@@ -23,7 +23,8 @@ export default async function BookingsPage() {
     bookingNo: b.bookingNo,
     status: b.status,
     scheduledDate: b.scheduledDate.toISOString(),
-    clientName: b.client?.companyName ?? b.walkInName ?? "Walk-in",
+    scheduledStartTime: b.scheduledStartTime ?? null,
+    clientName: b.client?.clientName ?? b.walkInName ?? "Walk-in",
     pickup: b.pickupPoint,
     dropoff: b.dropoffPoint,
     truckCode: b.truck?.code ?? null,

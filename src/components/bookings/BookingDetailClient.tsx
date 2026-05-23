@@ -1,11 +1,42 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { transitionBookingAction, updateBookingAssignmentAction } from "@/actions/bookings";
+import { computePrice } from "@/features/pricing/engine";
+
+interface QuoteParams {
+  numberOfDropoffs: number;
+  condoService: boolean;
+  cateringService: boolean;
+  additionalHelper: boolean;
+  tollFee: number;
+  discountAmount: number;
+  vatOption: "VAT_INCLUSIVE" | "VAT_EXCLUSIVE" | "NON_VAT";
+}
+
+interface RateSettingsFlat {
+  driverRate: number;
+  helperRate: number;
+  overheadRate: number;
+  longDistanceRate: number;
+  longDistanceThresholdKm: number;
+  dieselPricePerLiter: number;
+  fuelFloor: number;
+  fuelEfficiencyKmpl: number;
+  additionalHelperRate: number;
+  additionalHourRate: number;
+  additionalDropoffCharge: number;
+  standardIncludedHours: number;
+  condoHandlingFee: number;
+  cateringHandlingFee: number;
+  loadingUnloadingFee: number;
+  distanceRatePerKm: number;
+  vatRate: number;
+}
 
 interface BookingDetail {
   id: string;
@@ -28,26 +59,54 @@ interface BookingDetail {
   helperNames: string[];
   quoteNo: string | null;
   quoteId: string | null;
+  estimatedHours: number | null;
+  quotedTruckTypeId: string | null;
+  quotedTruckTypeLabel: string | null;
   quotedAmount: number;
   finalAmount: number | null;
   notes: string | null;
   cancelReason: string | null;
   createdBy: string;
   createdAt: string;
+  quoteParams: QuoteParams | null;
+}
+
+interface TruckOption {
+  id: string;
+  code: string;
+  plateNo: string;
+  truckTypeId: string;
+  truckTypeLabel: string;
+  eightHourBaseRate: number;
+  perTripBaseRate: number;
 }
 
 interface SelectOption {
   id: string;
-  code?: string;
-  plateNo?: string;
   fullName?: string;
+}
+
+interface PriceHistoryEntry {
+  id: string;
+  createdAt: string;
+  username: string;
+  oldAmount: number;
+  newAmount: number;
+  oldTruckType: string | null;
+  newTruckType: string | null;
 }
 
 interface Props {
   booking: BookingDetail;
-  trucks: SelectOption[];
+  trucks: TruckOption[];
   drivers: SelectOption[];
   helpers: SelectOption[];
+  rateSettings: RateSettingsFlat | null;
+  priceHistory: PriceHistoryEntry[];
+}
+
+function w(n: number) {
+  return { toNumber: () => n };
 }
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -163,8 +222,7 @@ function TransitionButton({ toStatus }: { toStatus: string; bookingId: string })
   );
 }
 
-function AssignSaveButton() {
-  const { pending } = useFormStatus();
+function AssignSaveButton({ pending }: { pending: boolean }) {
   return (
     <button
       type="submit"
@@ -186,12 +244,30 @@ function AssignSaveButton() {
   );
 }
 
-export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props) {
+export function BookingDetailClient({ booking, trucks, drivers, helpers, rateSettings, priceHistory }: Props) {
   const [transitionState, transitionAction] = useActionState(transitionBookingAction, undefined);
-  const [assignState, assignAction] = useActionState(updateBookingAssignmentAction, undefined);
+  const [assignState, setAssignState] = useState<{ error?: string; success?: boolean } | undefined>(undefined);
+  const [isAssignPending, startAssignTransition] = useTransition();
 
+  const [selectedTruckId, setSelectedTruckId] = useState<string>(booking.truckId ?? "");
+  const [selectedDriverId, setSelectedDriverId] = useState<string>(booking.driverId ?? "");
+  const [scheduledDate, setScheduledDate] = useState<string>(booking.scheduledDate.slice(0, 10));
+  const [startTime, setStartTime] = useState<string>(booking.scheduledStartTime ?? "");
+  const [endTime, setEndTime] = useState<string>(booking.scheduledEndTime ?? "");
+  const [notes, setNotes] = useState<string>(booking.notes ?? "");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>(booking.helperIds);
   const [showCancelNote, setShowCancelNote] = useState(false);
+
+  function handleStartTimeChange(value: string) {
+    setStartTime(value);
+    if (value && booking.estimatedHours) {
+      const [h, m] = value.split(":").map(Number);
+      const totalMins = h * 60 + m + Math.round(booking.estimatedHours * 60);
+      const endH = Math.floor(totalMins / 60) % 24;
+      const endM = totalMins % 60;
+      setEndTime(`${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`);
+    }
+  }
 
   const statusStyle = STATUS_STYLES[booking.status] ?? STATUS_STYLES.DRAFT;
   const allowedTransitions = STATUS_TRANSITIONS[booking.status] ?? [];
@@ -201,6 +277,75 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
     setSelectedHelpers((prev) =>
       prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]
     );
+  }
+
+  const recomputedAmount = useMemo<number | null>(() => {
+    if (!booking.quoteParams || !rateSettings || !selectedTruckId) return null;
+    const truck = trucks.find((t) => t.id === selectedTruckId);
+    if (!truck || truck.truckTypeId === booking.quotedTruckTypeId) return null;
+    try {
+      const result = computePrice(
+        {
+          estimatedDistanceKm: booking.estimatedDistanceKm,
+          estimatedJobHours: booking.estimatedHours ?? rateSettings.standardIncludedHours,
+          tripBillingType: booking.tripBillingType,
+          numberOfDropoffs: booking.quoteParams.numberOfDropoffs,
+          condoService: booking.quoteParams.condoService,
+          cateringService: booking.quoteParams.cateringService,
+          additionalHelper: booking.quoteParams.additionalHelper,
+          tollFee: booking.quoteParams.tollFee,
+          discountAmount: booking.quoteParams.discountAmount,
+          vatOption: booking.quoteParams.vatOption,
+        },
+        {
+          truckType: {
+            eightHourBaseRate: w(truck.eightHourBaseRate),
+            perTripBaseRate: w(truck.perTripBaseRate),
+          },
+          settings: {
+            driverRate: w(rateSettings.driverRate),
+            helperRate: w(rateSettings.helperRate),
+            overheadRate: w(rateSettings.overheadRate),
+            longDistanceRate: w(rateSettings.longDistanceRate),
+            longDistanceThresholdKm: rateSettings.longDistanceThresholdKm,
+            dieselPricePerLiter: w(rateSettings.dieselPricePerLiter),
+            fuelFloor: w(rateSettings.fuelFloor),
+            fuelEfficiencyKmpl: w(rateSettings.fuelEfficiencyKmpl),
+            additionalHelperRate: w(rateSettings.additionalHelperRate),
+            additionalHourRate: w(rateSettings.additionalHourRate),
+            additionalDropoffCharge: w(rateSettings.additionalDropoffCharge),
+            standardIncludedHours: rateSettings.standardIncludedHours,
+            condoHandlingFee: w(rateSettings.condoHandlingFee),
+            cateringHandlingFee: w(rateSettings.cateringHandlingFee),
+            loadingUnloadingFee: w(rateSettings.loadingUnloadingFee),
+            distanceRatePerKm: w(rateSettings.distanceRatePerKm),
+            vatRate: w(rateSettings.vatRate),
+          },
+        }
+      );
+      return result.finalPrice;
+    } catch {
+      return null;
+    }
+  }, [selectedTruckId, booking, trucks, rateSettings]);
+
+  function handleAssignSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setAssignState(undefined);
+    const fd = new FormData();
+    fd.set("bookingId", booking.id);
+    if (selectedTruckId) fd.set("truckId", selectedTruckId);
+    if (selectedDriverId) fd.set("driverId", selectedDriverId);
+    if (scheduledDate) fd.set("scheduledDate", scheduledDate);
+    if (startTime) fd.set("scheduledStartTime", startTime);
+    if (endTime) fd.set("scheduledEndTime", endTime);
+    fd.set("notes", notes);
+    selectedHelpers.forEach((id) => fd.append("helperId", id));
+    if (recomputedAmount !== null) fd.set("recomputedAmount", String(recomputedAmount));
+    startAssignTransition(async () => {
+      const result = await updateBookingAssignmentAction(undefined, fd);
+      setAssignState(result);
+    });
   }
 
   return (
@@ -282,7 +427,7 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
               <DetailRow label="Pick-up" value={booking.pickup} />
               <DetailRow label="Drop-off" value={booking.dropoff} />
               <DetailRow label="Distance" value={`${booking.estimatedDistanceKm} km`} />
-              <DetailRow label="Billing Type" value={booking.tripBillingType === "EIGHT_HOUR" ? "8 Hours" : "Per Trip"} />
+              <DetailRow label="Billing Type" value={booking.tripBillingType === "EIGHT_HOUR" ? "Per 8 Hours" : "Per Trip"} />
               <DetailRow label="Date" value={formatDate(booking.scheduledDate)} />
               {booking.scheduledStartTime && (
                 <DetailRow label="Time" value={`${booking.scheduledStartTime}${booking.scheduledEndTime ? ` – ${booking.scheduledEndTime}` : ""}`} />
@@ -303,24 +448,46 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
 
           {/* Assignment form */}
           {isEditable && (
-            <form action={assignAction}>
+            <form onSubmit={handleAssignSubmit}>
               <input type="hidden" name="bookingId" value={booking.id} />
               <Card title="Truck & Crew Assignment">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  {booking.quotedTruckTypeLabel && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <DetailRow label="Quoted Truck Type" value={booking.quotedTruckTypeLabel} />
+                    </div>
+                  )}
                   <div>
                     <FieldLabel>Truck</FieldLabel>
-                    <select name="truckId" defaultValue={booking.truckId ?? ""} style={selectStyle}>
+                    <select
+                      value={selectedTruckId}
+                      onChange={(e) => setSelectedTruckId(e.target.value)}
+                      style={selectStyle}
+                    >
                       <option value="">— Unassigned —</option>
                       {trucks.map((t) => (
                         <option key={t.id} value={t.id}>
-                          {t.code} — {t.plateNo}
+                          {t.code} — {t.plateNo} · {t.truckTypeLabel}
                         </option>
                       ))}
                     </select>
+                    {booking.quotedTruckTypeId && selectedTruckId && (() => {
+                      const selectedTruck = trucks.find((t) => t.id === selectedTruckId);
+                      const mismatch = selectedTruck && selectedTruck.truckTypeId !== booking.quotedTruckTypeId;
+                      return mismatch ? (
+                        <div style={{ fontSize: 11, marginTop: 4, color: "#92400e" }}>
+                          ⚠ Truck type doesn&apos;t match quoted type ({booking.quotedTruckTypeLabel ?? booking.quotedTruckTypeId})
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                   <div>
                     <FieldLabel>Driver</FieldLabel>
-                    <select name="driverId" defaultValue={booking.driverId ?? ""} style={selectStyle}>
+                    <select
+                      value={selectedDriverId}
+                      onChange={(e) => setSelectedDriverId(e.target.value)}
+                      style={selectStyle}
+                    >
                       <option value="">— Unassigned —</option>
                       {drivers.map((d) => (
                         <option key={d.id} value={d.id}>
@@ -334,7 +501,8 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
                     <input
                       type="date"
                       name="scheduledDate"
-                      defaultValue={booking.scheduledDate.slice(0, 10)}
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
                       style={inputStyle}
                     />
                   </div>
@@ -344,16 +512,20 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
                       <input
                         type="time"
                         name="scheduledStartTime"
-                        defaultValue={booking.scheduledStartTime ?? ""}
+                        value={startTime}
+                        onChange={(e) => handleStartTimeChange(e.target.value)}
                         style={inputStyle}
                       />
                     </div>
                     <div>
-                      <FieldLabel>End Time</FieldLabel>
+                      <FieldLabel>
+                        End Time{booking.estimatedHours ? ` (auto · ${booking.estimatedHours}h)` : ""}
+                      </FieldLabel>
                       <input
                         type="time"
                         name="scheduledEndTime"
-                        defaultValue={booking.scheduledEndTime ?? ""}
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
                         style={inputStyle}
                       />
                     </div>
@@ -399,13 +571,14 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
                     <FieldLabel>Notes</FieldLabel>
                     <textarea
                       name="notes"
-                      defaultValue={booking.notes ?? ""}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
                       style={{ ...inputStyle, resize: "vertical", minHeight: 64 }}
                     />
                   </div>
                 </div>
                 <div style={{ marginTop: 16 }}>
-                  <AssignSaveButton />
+                  <AssignSaveButton pending={isAssignPending} />
                 </div>
               </Card>
             </form>
@@ -415,6 +588,38 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
           {booking.status === "CANCELLED" && booking.cancelReason && (
             <Card title="Cancellation">
               <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>{booking.cancelReason}</p>
+            </Card>
+          )}
+
+          {/* Price history */}
+          {priceHistory.length > 0 && (
+            <Card title="Price History">
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {priceHistory.map((entry) => (
+                  <div key={entry.id} style={{ fontSize: 12, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", textDecoration: "line-through" }}>
+                          {formatCurrency(entry.oldAmount)}
+                        </span>
+                        <span style={{ color: "var(--muted)" }}>→</span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--maroon)" }}>
+                          {formatCurrency(entry.newAmount)}
+                        </span>
+                      </div>
+                      <span style={{ color: "var(--muted)", fontSize: 11 }}>
+                        {new Date(entry.createdAt).toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" })}
+                      </span>
+                    </div>
+                    {(entry.oldTruckType || entry.newTruckType) && (
+                      <div style={{ color: "var(--muted)" }}>
+                        {entry.oldTruckType ?? "—"} → {entry.newTruckType ?? "—"}
+                      </div>
+                    )}
+                    <div style={{ color: "var(--muted)", marginTop: 2 }}>by {entry.username}</div>
+                  </div>
+                ))}
+              </div>
             </Card>
           )}
 
@@ -513,9 +718,15 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers }: Props
                 Financials
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
-                <span style={{ color: "var(--muted)" }}>Quoted</span>
-                <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCurrency(booking.quotedAmount)}</span>
+                <span style={{ color: "var(--muted)" }}>{recomputedAmount !== null ? "Original" : "Quoted"}</span>
+                <span style={{ fontVariantNumeric: "tabular-nums", textDecoration: recomputedAmount !== null ? "line-through" : undefined, color: recomputedAmount !== null ? "var(--muted)" : undefined }}>{formatCurrency(booking.quotedAmount)}</span>
               </div>
+              {recomputedAmount !== null && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600, marginBottom: 6, color: "var(--maroon)" }}>
+                  <span>Recomputed</span>
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCurrency(recomputedAmount)}</span>
+                </div>
+              )}
               {booking.finalAmount !== null && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 4 }}>
                   <span>Final</span>

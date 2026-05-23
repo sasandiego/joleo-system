@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { saveQuoteAction, updateQuoteAction } from "@/actions/quotes";
+import { generateServiceDescriptionAction } from "@/actions/ai-quotes";
 import { computePrice } from "@/features/pricing/engine";
 import { PriceBreakdownPanel } from "./PriceBreakdownPanel";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -11,7 +12,7 @@ import Link from "next/link";
 
 interface Client {
   id: string;
-  companyName: string;
+  clientName: string;
   contactPerson: string | null;
 }
 
@@ -23,11 +24,6 @@ interface TruckType {
   wheelType: string;
   eightHourBaseRate: number;
   perTripBaseRate: number;
-}
-
-interface RouteArea {
-  id: string;
-  label: string;
 }
 
 interface Settings {
@@ -57,7 +53,6 @@ export interface QuoteInitialValues {
   serviceType: string;
   pickupPoint: string;
   dropoffPoint: string;
-  routeAreaId: string | null;
   truckTypeId: string;
   numberOfHelpers: number;
   estimatedDistanceKm: number;
@@ -71,15 +66,18 @@ export interface QuoteInitialValues {
   discountAmount: number;
   manualOverridePrice: number | null;
   vatOption: VatOption;
+  serviceDescription: string | null;
   notes: string | null;
+  scheduledDate: string | null; // YYYY-MM-DD
+  scheduledStartTime: string | null; // HH:MM
 }
 
 interface Props {
   clients: Client[];
   truckTypes: TruckType[];
-  routeAreas: RouteArea[];
   settings: Settings;
   initial?: QuoteInitialValues; // present in edit mode
+  defaultClientId?: string; // pre-select client when coming from client detail page
 }
 
 function w(n: number) {
@@ -229,7 +227,7 @@ function SaveButtons({ hasError, isEdit }: { hasError: boolean; isEdit: boolean 
   );
 }
 
-export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, initial }: Props) {
+export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defaultClientId }: Props) {
   const isEdit = !!initial;
   const [actionState, formAction] = useActionState(
     isEdit ? updateQuoteAction : saveQuoteAction,
@@ -238,6 +236,14 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, in
 
   const defaultTruckType = truckTypes[0];
 
+  const [serviceType, setServiceType] = useState(initial?.serviceType ?? "LIPAT_BAHAY");
+  const [pickupPoint, setPickupPoint] = useState(initial?.pickupPoint ?? "");
+  const [dropoffPoint, setDropoffPoint] = useState(initial?.dropoffPoint ?? "");
+  const [serviceDescription, setServiceDescription] = useState(initial?.serviceDescription ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [scheduledDate, setScheduledDate] = useState(initial?.scheduledDate ?? "");
+  const [scheduledStartTime, setScheduledStartTime] = useState(initial?.scheduledStartTime ?? "");
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [truckTypeId, setTruckTypeId] = useState(initial?.truckTypeId ?? defaultTruckType?.id ?? "");
   const [tripBillingType, setTripBillingType] = useState<BillingType>(initial?.tripBillingType ?? "EIGHT_HOUR");
   const [distanceKm, setDistanceKm] = useState(initial?.estimatedDistanceKm ?? 30);
@@ -256,6 +262,21 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, in
 
   const selectedTruckType = truckTypes.find((t) => t.id === truckTypeId) ?? defaultTruckType;
   const isLongDistance = distanceKm >= settings.longDistanceThresholdKm;
+
+  async function handleGenerateDescription() {
+    setIsGeneratingDesc(true);
+    const result = await generateServiceDescriptionAction({
+      serviceType,
+      pickupPoint,
+      dropoffPoint,
+      truckType: selectedTruckType?.label ?? truckTypeId,
+      numberOfHelpers: numHelpers,
+      billingType: tripBillingType,
+      notes: notes.trim() || undefined,
+    });
+    setIsGeneratingDesc(false);
+    if (result.text) setServiceDescription(result.text);
+  }
 
   const pricingResult = useMemo<PricingResult | null>(() => {
     if (!selectedTruckType) return null;
@@ -363,38 +384,47 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, in
           <SectionCard title="A · Booking Information">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <FieldGroup label="Client">
-                <select name="clientId" style={selectStyle} required defaultValue={initial?.clientId ?? ""}>
+                <select name="clientId" style={selectStyle} required defaultValue={initial?.clientId ?? defaultClientId ?? ""}>
                   <option value="" disabled>— Select client —</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.companyName}
+                      {c.clientName}
                     </option>
                   ))}
                 </select>
               </FieldGroup>
               <FieldGroup label="Service Type">
-                <select name="serviceType" style={selectStyle} defaultValue={initial?.serviceType ?? "LIPAT_BAHAY"}>
+                <select name="serviceType" style={selectStyle} value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
                   <option value="LIPAT_BAHAY">Lipat-Bahay / House Moving</option>
                   <option value="COMMERCIAL_DELIVERY">Commercial Delivery</option>
                   <option value="CATERING_DELIVERY">Catering Delivery</option>
                   <option value="OTHER">Other</option>
                 </select>
               </FieldGroup>
+              <FieldGroup label="Scheduled Date" hint="Required. When the move/delivery will take place.">
+                <input
+                  name="scheduledDate"
+                  type="date"
+                  style={inputStyle}
+                  required
+                  value={scheduledDate}
+                  onChange={(e) => setScheduledDate(e.target.value)}
+                />
+              </FieldGroup>
+              <FieldGroup label="Scheduled Start Time" hint="Optional. Leave blank if to be confirmed.">
+                <input
+                  name="scheduledStartTime"
+                  type="time"
+                  style={inputStyle}
+                  value={scheduledStartTime}
+                  onChange={(e) => setScheduledStartTime(e.target.value)}
+                />
+              </FieldGroup>
               <FieldGroup label="Pick-up Point">
-                <input name="pickupPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Pioneer, Mandaluyong" required defaultValue={initial?.pickupPoint ?? ""} />
+                <input name="pickupPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Pioneer, Mandaluyong" required value={pickupPoint} onChange={(e) => setPickupPoint(e.target.value)} />
               </FieldGroup>
               <FieldGroup label="Drop-off Point">
-                <input name="dropoffPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Marquee, Pampanga" required defaultValue={initial?.dropoffPoint ?? ""} />
-              </FieldGroup>
-              <FieldGroup label="Route / Area">
-                <select name="routeAreaId" style={selectStyle} defaultValue={initial?.routeAreaId ?? ""}>
-                  <option value="">— Select area —</option>
-                  {routeAreas.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
+                <input name="dropoffPoint" type="text" style={inputStyle} placeholder="e.g. Robinsons Marquee, Pampanga" required value={dropoffPoint} onChange={(e) => setDropoffPoint(e.target.value)} />
               </FieldGroup>
               <FieldGroup
                 label="Estimated Distance (km)"
@@ -420,12 +450,13 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, in
                   onChange={(e) => setNumDropoffs(Math.max(1, parseInt(e.target.value) || 1))}
                 />
               </FieldGroup>
-              <FieldGroup label="Notes" span2>
+              <FieldGroup label="Notes (Internal)" hint="Admin-only. Special client requests or operational reminders — won't appear on the PDF, but the AI Service Description generator on the right will summarize them." span2>
                 <textarea
                   name="notes"
-                  style={{ ...inputStyle, resize: "vertical", minHeight: 72 }}
-                  placeholder="Optional notes for this quote"
-                  defaultValue={initial?.notes ?? ""}
+                  style={{ ...inputStyle, resize: "vertical", minHeight: 64 }}
+                  placeholder="e.g. Client requested 6 AM start; bring extra straps; condo elevator booked 8-10 AM."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                 />
               </FieldGroup>
             </div>
@@ -469,10 +500,10 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, in
           {/* Section C — Billing & Job Details */}
           <SectionCard title="C · Billing & Job Details">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <FieldGroup label="Billing Type" hint="8 Hours for local/short trips · Per Trip for long-distance flat-rate trips.">
+              <FieldGroup label="Billing Type" hint="Per 8 Hours for local/short trips · Per Trip for long-distance flat-rate trips.">
                 <div style={{ display: "flex", gap: 6 }}>
                   <BillingToggleBtn
-                    label="8 Hours"
+                    label="Per 8 Hours"
                     active={tripBillingType === "EIGHT_HOUR"}
                     onClick={() => setTripBillingType("EIGHT_HOUR")}
                   />
@@ -583,8 +614,56 @@ export function QuoteBuilderForm({ clients, truckTypes, routeAreas, settings, in
           </SectionCard>
         </div>
 
-        {/* Right: live breakdown */}
-        <div style={{ position: "sticky", top: 72 }}>
+        {/* Right: service description + live breakdown */}
+        <div style={{ position: "sticky", top: 72, display: "flex", flexDirection: "column", gap: 16, maxHeight: "calc(100vh - 104px)", overflowY: "auto", paddingRight: 4 }}>
+          <div style={{ background: "var(--paper)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--maroon)", marginBottom: 10 }}>
+              Service Description
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10, lineHeight: 1.5 }}>
+              Appears on the client-facing PDF. Click Generate to draft from all the form fields (including Notes).
+            </div>
+            <textarea
+              name="serviceDescription"
+              style={{ ...inputStyle, resize: "vertical", minHeight: 100 }}
+              placeholder="Describe the service in professional terms, or click Generate."
+              value={serviceDescription}
+              onChange={(e) => setServiceDescription(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleGenerateDescription}
+              disabled={isGeneratingDesc || !pickupPoint || !dropoffPoint}
+              title={
+                isGeneratingDesc
+                  ? "Generating description…"
+                  : !pickupPoint && !dropoffPoint
+                    ? "Fill in pick-up and drop-off points first so the AI has enough context."
+                    : !pickupPoint
+                      ? "Fill in the pick-up point first so the AI has enough context."
+                      : !dropoffPoint
+                        ? "Fill in the drop-off point first so the AI has enough context."
+                        : "Generate a professional service description with AI (uses all form fields plus Notes)."
+              }
+              style={{
+                marginTop: 8,
+                width: "100%",
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                background: isGeneratingDesc ? "var(--surface)" : "var(--maroon-tint)",
+                color: isGeneratingDesc ? "var(--muted)" : "var(--maroon)",
+                border: "1px solid var(--maroon)",
+                borderRadius: 6,
+                cursor: isGeneratingDesc || !pickupPoint || !dropoffPoint ? "not-allowed" : "pointer",
+                opacity: !pickupPoint || !dropoffPoint ? 0.5 : 1,
+              }}
+            >
+              {isGeneratingDesc ? "Generating…" : "✨ Generate with AI"}
+            </button>
+          </div>
+
           <PriceBreakdownPanel result={pricingResult} />
         </div>
       </div>

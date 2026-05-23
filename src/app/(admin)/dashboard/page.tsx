@@ -42,7 +42,7 @@ export default async function DashboardPage() {
       },
       orderBy: { scheduledDate: "asc" },
       include: {
-        client: { select: { companyName: true } },
+        client: { select: { clientName: true } },
         truck: { select: { code: true } },
         driver: { select: { fullName: true } },
       },
@@ -51,7 +51,7 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 3,
       include: {
-        client: { select: { companyName: true } },
+        client: { select: { clientName: true } },
       },
     }),
   ]);
@@ -277,7 +277,7 @@ export default async function DashboardPage() {
                       </Link>
                     </td>
                     <td style={{ padding: "10px 12px 10px 0" }}>
-                      {b.client?.companyName ?? b.walkInName ?? "Walk-in"}
+                      {b.client?.clientName ?? b.walkInName ?? "Walk-in"}
                     </td>
                     <td style={{ padding: "10px 12px 10px 0", fontSize: 12, color: "var(--muted)" }}>
                       {b.pickupPoint.split(",")[0]} → {b.dropoffPoint.split(",")[0]}
@@ -354,7 +354,7 @@ export default async function DashboardPage() {
               </div>
             ) : (
               recentQuotes.map((q, i) => {
-                const clientName = q.client?.companyName ?? q.walkInName ?? "Walk-in";
+                const clientName = q.client?.clientName ?? q.walkInName ?? "Walk-in";
                 const pickup = q.pickupPoint.split(",")[0];
                 const dropoff = q.dropoffPoint.split(",")[0];
                 return (

@@ -1,7 +1,7 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-22 (6-phase pricing engine refactor complete)
+Last updated: 2026-05-22 (late session — Phase 1.5: Clients & AI complete)
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
@@ -118,6 +118,74 @@ Last updated: 2026-05-22 (6-phase pricing engine refactor complete)
 - Exclusions list updated; billing type shown in inclusions
 - Files: 4 created, 6 rewritten, 11 modified, 2 deleted (actions/rate-settings.ts, RateSettingsForm.tsx)
 
+### Phase 1.5 — Clients & AI (2026-05-22 late session) ⭐
+**Client schema overhaul** (`20260522160000_client_type_three_way`)
+- `companyName` → `clientName`, `businessType` → `type`
+- Enum redesigned: `ClientType` = INDIVIDUAL_PERSON | INDIVIDUAL_BUSINESS | CORPORATION_BUSINESS
+- Three-way segmented toggle in dialog; name label, TIN visibility, address label all adapt per type
+- 18 files updated across actions/components/pages to use new field names
+- Existing 34 customers backfilled: 12 → CORPORATION_BUSINESS, 22 → INDIVIDUAL_BUSINESS; then 10 reclassified to INDIVIDUAL_PERSON by user (ARIEL NAPO, CHRISTINA MINA, GUY GUILLEGO, IMPY PILAPIL, JEREMY GUIAB, LAWRENCE PINEDA, LESTER JACINTO, VIRGIE COQUIA, NOEL CRUZ, LUDIVINA VILLARICA)
+
+**Auto-generated client codes**
+- `generateClientCode()` in `src/actions/clients.ts` — `CL-NNNN` (4-digit zero-padded, sequential)
+- Dialog: Client Code field is read-only; "Auto-generated on save" placeholder in Add mode
+- Update path never touches `clientCode` (codes are immutable after creation)
+- Backfill: all 34 existing clients re-coded `CL-0001` through `CL-0034` by `createdAt` order
+- Old hand-rolled `import-clients.ts` script deleted (served its one-time purpose)
+
+**Client form validation** (3 layers)
+- Live `sanitizePhone()` / `sanitizeEmail()` strip invalid chars on keystroke
+- `onBlur` formatters normalize PH mobile to canonical shape; landline trims whitespace; email lowercases
+- Server-side Zod with `PH_MOBILE_RE` and `PH_LANDLINE_RE`
+- HTML `pattern` attribute removed (`/v` flag incompat)
+- All 9 text fields converted to controlled state to survive React 19 form-action reset
+- Payment Terms select uses hidden-input workaround for select reconciliation quirk
+- `aria-describedby={undefined}` added to all 5 Radix Dialog.Content elements
+
+**Quote schema additions** (`20260522150000_quote_notes_and_schedule`)
+- `Quote.notes` (internal admin notes, never on PDF) — separate from `serviceDescription` (client-facing PDF text)
+- `Quote.scheduledDate` (DATE, required on form) + `Quote.scheduledStartTime` (HH:MM, optional)
+- Convert-to-booking now uses `quote.scheduledDate` instead of defaulting to today
+
+**AI features via LiteLLM gateway → Claude Haiku 4.5**
+- `src/lib/ai.ts` — fetch wrapper for OpenAI-compatible endpoint, `smart` alias
+- `src/actions/ai-quotes.ts` — `generateServiceDescriptionAction` (uses all form fields + notes, 2–3 sentences) and `generateClientMessageAction` (SMS/Viber draft)
+- Service Description card moved to right column above Price Breakdown (sticky)
+- Client Message Drafter card on `/quotes/[id]` with Draft / Copy / Regenerate buttons
+
+**Route/Area removed from UI**
+- Quote Builder form, PDF, sidebar nav — all dropped
+- Schema column + `/route-areas` admin page kept (parking)
+
+**Quote detail page upgrades**
+- "Convert to Booking" button (header) — only shown when not yet converted
+- Service Flags section hides entirely when no flags are active (previously rendered all 4 in muted styling)
+- Quote No in `/quotes` list is now a clickable Link to detail page
+
+**Sidebar Logout**
+- Small Logout button next to user info in footer (was missing — user had no way to sign out)
+
+**PDF tweaks**
+- Service Description renders as compact paragraph after header (only if present)
+- Italic style removed (no italic DejaVu font on disk → would crash PDF generation)
+- Scheduled Date + Start Time added to Client & Booking Details grid (5 rows × 2 cols)
+- Route/Area row removed
+
+**Migrations applied:** `20260522120000_add_client_extended_fields`, `20260522130000_quote_service_description`, `20260522150000_quote_notes_and_schedule`, `20260522160000_client_type_three_way`
+
+**Files this phase:** ~22 modified, ~3 created (`src/lib/ai.ts`, `src/actions/ai-quotes.ts`, `src/components/quotes/ClientMessageDrafter.tsx`), 1 deleted (`scripts/import-clients.ts`)
+
+### Post-Phase 1.5 polish (2026-05-23)
+**Bug fixes**
+- Quotes list "Date & Time" was showing `createdAt` (creation timestamp) — now shows `scheduledDate + scheduledStartTime`; falls back to `createdAt` for old quotes without a scheduled date
+- `trucks/page.tsx` was passing raw Prisma Decimal objects (`eightHourBaseRate`, `perTripBaseRate`, `dailyRate`, `excessHourRate` on TruckType) to `TruckListClient` — caused "Decimal objects are not supported" RSC crash; fixed with explicit `.map()` + `.toNumber()`; `TruckListClient` field types updated from `unknown` → `number`
+
+**UX improvements**
+- Bookings list: `bookingNo` is now a clickable maroon link to `/bookings/[id]` (same pattern as Quote No.); start time shown as muted second line in Date column when set
+- Booking Detail: truck dropdown options show truck type label (`V5 — ABC 1234 · 14 ftr - 6 wheels`); "Quoted Truck Type" row added to Booking Information card; ⚠ mismatch warning under dropdown when assigned truck type differs from quoted type
+
+**Files changed:** `src/app/(admin)/quotes/page.tsx`, `src/components/quotes/QuoteListClient.tsx`, `src/app/(admin)/bookings/page.tsx`, `src/components/bookings/BookingListClient.tsx`, `src/app/(admin)/bookings/[id]/page.tsx`, `src/components/bookings/BookingDetailClient.tsx`, `src/app/(admin)/trucks/page.tsx`, `src/components/trucks/TruckListClient.tsx`
+
 ## 🧪 Experimental (treat as fragile)
 _(none)_
 
@@ -139,3 +207,4 @@ _(none)_
 | M9 | Dockerize + Deploy | ✅ Complete |
 | M10 | Polish + Testing | ✅ Complete |
 | — | Pricing Engine Refactor (6-phase) | ✅ Complete |
+| — | Phase 1.5 — Clients & AI | ✅ Complete |

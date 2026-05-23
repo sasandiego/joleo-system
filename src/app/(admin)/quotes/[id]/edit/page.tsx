@@ -10,12 +10,12 @@ interface Props {
 export default async function EditQuotePage({ params }: Props) {
   const { id } = await params;
 
-  const [quote, clients, truckTypes, routeAreas, settings] = await Promise.all([
+  const [quote, clients, truckTypes, settings] = await Promise.all([
     db.quote.findUnique({ where: { id } }),
     db.client.findMany({
       where: { isActive: true },
-      orderBy: { companyName: "asc" },
-      select: { id: true, companyName: true, contactPerson: true },
+      orderBy: { clientName: "asc" },
+      select: { id: true, clientName: true, contactPerson: true },
     }),
     db.truckType.findMany({
       orderBy: { sizeFt: "asc" },
@@ -29,10 +29,6 @@ export default async function EditQuotePage({ params }: Props) {
         perTripBaseRate: true,
       },
     }),
-    db.routeArea.findMany({
-      orderBy: { label: "asc" },
-      select: { id: true, label: true },
-    }),
     db.rateSettings.findUniqueOrThrow({ where: { id: 1 } }),
   ]);
 
@@ -44,7 +40,6 @@ export default async function EditQuotePage({ params }: Props) {
     serviceType: quote.serviceType,
     pickupPoint: quote.pickupPoint,
     dropoffPoint: quote.dropoffPoint,
-    routeAreaId: quote.routeAreaId,
     truckTypeId: quote.truckTypeId ?? truckTypes[0]?.id ?? "",
     numberOfHelpers: quote.numberOfHelpers,
     estimatedDistanceKm: quote.estimatedDistanceKm,
@@ -58,7 +53,12 @@ export default async function EditQuotePage({ params }: Props) {
     discountAmount: quote.discountAmount.toNumber(),
     manualOverridePrice: quote.manualOverridePrice?.toNumber() ?? null,
     vatOption: quote.vatOption,
+    serviceDescription: quote.serviceDescription,
     notes: quote.notes,
+    scheduledDate: quote.scheduledDate
+      ? quote.scheduledDate.toISOString().slice(0, 10)
+      : null,
+    scheduledStartTime: quote.scheduledStartTime,
   };
 
   const settingsForClient = {
@@ -95,7 +95,6 @@ export default async function EditQuotePage({ params }: Props) {
     <QuoteBuilderForm
       clients={clients}
       truckTypes={truckTypesForClient}
-      routeAreas={routeAreas}
       settings={settingsForClient}
       initial={initial}
     />

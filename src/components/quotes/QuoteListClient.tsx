@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 interface QuoteSummary {
@@ -12,6 +12,18 @@ interface QuoteSummary {
   finalPrice: number;
   createdAt: string;
   createdBy: string;
+  scheduledDate: string | null;
+  scheduledStartTime: string | null;
+}
+
+function formatSchedule(scheduledDate: string | null, scheduledStartTime: string | null, createdAt: string): string {
+  if (!scheduledDate) return formatDateTime(createdAt);
+  const date = formatDate(scheduledDate);
+  if (!scheduledStartTime) return date;
+  const [h, m] = scheduledStartTime.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${date}, ${hour12}:${m.toString().padStart(2, "0")} ${period}`;
 }
 
 const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
@@ -87,7 +99,14 @@ export function QuoteListClient({ quotes }: { quotes: QuoteSummary[] }) {
                 return (
                   <tr key={q.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "12px 16px", fontWeight: 600, fontFamily: "var(--font-mono)" }}>
-                      {q.quoteNo}
+                      <Link
+                        href={`/quotes/${q.id}`}
+                        style={{ color: "var(--maroon)", textDecoration: "none" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                      >
+                        {q.quoteNo}
+                      </Link>
                     </td>
                     <td style={{ padding: "12px 16px" }}>{q.clientName}</td>
                     <td style={{ padding: "12px 16px" }}>
@@ -106,7 +125,7 @@ export function QuoteListClient({ quotes }: { quotes: QuoteSummary[] }) {
                       {formatCurrency(q.finalPrice)}
                     </td>
                     <td style={{ padding: "12px 16px", color: "var(--muted)" }}>
-                      {formatDateTime(q.createdAt)}
+                      {formatSchedule(q.scheduledDate, q.scheduledStartTime, q.createdAt)}
                     </td>
                     <td style={{ padding: "12px 16px", color: "var(--muted)" }}>{q.createdBy}</td>
                     <td style={{ padding: "12px 16px" }}>

@@ -3,12 +3,17 @@ import Link from "next/link";
 import { QuoteBuilderForm } from "@/components/quotes/QuoteBuilderForm";
 import { PageHeader } from "@/components/layout/PageHeader";
 
-export default async function NewQuotePage() {
-  const [clients, truckTypes, routeAreas, settings] = await Promise.all([
+interface Props {
+  searchParams: Promise<{ clientId?: string }>;
+}
+
+export default async function NewQuotePage({ searchParams }: Props) {
+  const { clientId } = await searchParams;
+  const [clients, truckTypes, settings] = await Promise.all([
     db.client.findMany({
       where: { isActive: true },
-      orderBy: { companyName: "asc" },
-      select: { id: true, companyName: true, contactPerson: true },
+      orderBy: { clientName: "asc" },
+      select: { id: true, clientName: true, contactPerson: true },
     }),
     db.truckType.findMany({
       orderBy: { sizeFt: "asc" },
@@ -21,10 +26,6 @@ export default async function NewQuotePage() {
         eightHourBaseRate: true,
         perTripBaseRate: true,
       },
-    }),
-    db.routeArea.findMany({
-      orderBy: { label: "asc" },
-      select: { id: true, label: true },
     }),
     db.rateSettings.findUniqueOrThrow({ where: { id: 1 } }),
   ]);
@@ -77,8 +78,8 @@ export default async function NewQuotePage() {
     <QuoteBuilderForm
       clients={clients}
       truckTypes={truckTypesForClient}
-      routeAreas={routeAreas}
       settings={settingsForClient}
+      defaultClientId={clientId}
     />
   );
 }

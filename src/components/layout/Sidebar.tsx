@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOutAction } from "@/actions/auth";
 
 const navSections = [
   {
@@ -21,7 +22,6 @@ const navSections = [
       { href: "/drivers", label: "Drivers" },
       { href: "/helpers", label: "Helpers" },
       { href: "/clients", label: "Clients" },
-      { href: "/route-areas", label: "Route Areas" },
     ],
   },
   {
@@ -231,6 +231,36 @@ export function Sidebar({
           </div>
           <div style={{ fontSize: 11, color: "var(--muted)" }}>{userRole}</div>
         </div>
+        <form action={signOutAction}>
+          <button
+            type="submit"
+            title="Sign out"
+            aria-label="Sign out"
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              padding: "6px 8px",
+              fontSize: 11,
+              fontWeight: 500,
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--surface)";
+              (e.currentTarget as HTMLElement).style.color = "var(--maroon)";
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--maroon)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+              (e.currentTarget as HTMLElement).style.color = "var(--ink-soft)";
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+            }}
+          >
+            Logout
+          </button>
+        </form>
       </div>
     </aside>
   );

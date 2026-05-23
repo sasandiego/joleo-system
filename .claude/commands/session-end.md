@@ -13,5 +13,10 @@ Based on what we did this session, update:
    - Update 🔨 In Progress
    - Add new blockers or known issues
 
+3. .remember/
+   - `now.md` — overwrite with one-paragraph resume state: what's done, what's next, any open items
+   - `today-YYYY-MM-DD.md` — append a `## HH:MM | branch — SESSION END` entry summarising the session
+   - `recent.md` — prepend today's date block with a one-paragraph daily summary (if not already present for today)
+
 Show me a diff summary of what changed before writing.
 Wait for my approval before saving.

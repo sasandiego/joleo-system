@@ -9,8 +9,8 @@ interface TruckType {
   label: string;
   sizeFt: number;
   wheelType: string;
-  eightHourBaseRate: unknown;
-  perTripBaseRate: unknown;
+  eightHourBaseRate: number;
+  perTripBaseRate: number;
 }
 
 interface Truck {

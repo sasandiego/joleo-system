@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ClientDialog } from "./ClientDialog";
 import { ToggleClientButton } from "./ToggleClientButton";
 
+type ClientType = "INDIVIDUAL_PERSON" | "INDIVIDUAL_BUSINESS" | "CORPORATION_BUSINESS";
+
 interface Client {
   id: string;
-  companyName: string;
+  clientCode: string | null;
+  clientName: string;
+  type: ClientType;
   contactPerson: string | null;
   mobile: string | null;
+  landline: string | null;
   email: string | null;
+  tin: string | null;
+  address: string | null;
   paymentTerms: string | null;
   notes: string | null;
   isActive: boolean;
@@ -26,9 +34,11 @@ export function ClientListClient({ clients }: ClientListClientProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const filtered = clients.filter((c) => {
+    const q = search.toLowerCase();
     const matchesSearch =
-      c.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      (c.contactPerson?.toLowerCase().includes(search.toLowerCase()) ?? false);
+      c.clientName.toLowerCase().includes(q) ||
+      (c.clientCode?.toLowerCase().includes(q) ?? false) ||
+      (c.contactPerson?.toLowerCase().includes(q) ?? false);
     const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "active" && c.isActive) ||
@@ -106,7 +116,7 @@ export function ClientListClient({ clients }: ClientListClientProps) {
           </span>
           <input
             type="text"
-            placeholder="Search by company or contact…"
+            placeholder="Search by code, company, or contact…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ ...inputStyle, paddingLeft: 36, width: "100%" }}
@@ -135,7 +145,7 @@ export function ClientListClient({ clients }: ClientListClientProps) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Company Name", "Contact Person", "Mobile", "Payment Terms", "Status", "Actions"].map(
+              {["Code", "Client", "Contact Person", "Mobile", "Payment Terms", "Status", "Actions"].map(
                 (col) => (
                   <th
                     key={col}
@@ -161,7 +171,7 @@ export function ClientListClient({ clients }: ClientListClientProps) {
             {filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: "32px 24px",
                     textAlign: "center",
@@ -177,15 +187,57 @@ export function ClientListClient({ clients }: ClientListClientProps) {
             ) : (
               filtered.map((client) => (
                 <tr key={client.id}>
+                  {/* Code */}
                   <td
                     style={{
                       padding: "14px 24px",
-                      color: "var(--ink)",
+                      color: "var(--ink-soft)",
                       borderBottom: "1px solid var(--border)",
-                      fontWeight: 500,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    {client.companyName}
+                    {client.clientCode ?? "—"}
+                  </td>
+                  {/* Client — company name + Corp/Individual badge */}
+                  <td
+                    style={{
+                      padding: "14px 24px",
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    <Link
+                      href={`/clients/${client.id}`}
+                      style={{ fontWeight: 500, color: "var(--ink)", textDecoration: "none" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--maroon)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink)")}
+                    >
+                      {client.clientName}
+                    </Link>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        marginTop: 3,
+                        padding: "2px 7px",
+                        borderRadius: 999,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        letterSpacing: "0.04em",
+                        background:
+                          client.type === "CORPORATION_BUSINESS" ? "var(--maroon-tint)"
+                          : client.type === "INDIVIDUAL_BUSINESS" ? "#EEF2FF"
+                          : "#F3F4F6",
+                        color:
+                          client.type === "CORPORATION_BUSINESS" ? "var(--maroon)"
+                          : client.type === "INDIVIDUAL_BUSINESS" ? "#4338CA"
+                          : "#6B7280",
+                      }}
+                    >
+                      {client.type === "CORPORATION_BUSINESS" ? "Corporation"
+                        : client.type === "INDIVIDUAL_BUSINESS" ? "Individual Business"
+                        : "Individual Person"}
+                    </span>
                   </td>
                   <td
                     style={{
@@ -204,7 +256,7 @@ export function ClientListClient({ clients }: ClientListClientProps) {
                       fontFamily: "var(--font-mono)",
                     }}
                   >
-                    {client.mobile ?? "—"}
+                    {client.mobile ?? (client.landline ? `☎ ${client.landline}` : "—")}
                   </td>
                   <td
                     style={{

@@ -9,7 +9,7 @@ import { createBookingAction } from "@/actions/bookings";
 import { useEffect } from "react";
 
 interface Props {
-  clients: { id: string; companyName: string }[];
+  clients: { id: string; clientName: string }[];
   trucks: { id: string; code: string; plateNo: string }[];
   drivers: { id: string; fullName: string }[];
 }
@@ -102,7 +102,7 @@ export function NewBookingForm({ clients, trucks, drivers }: Props) {
               <select name="clientId" style={selectStyle} required defaultValue="">
                 <option value="" disabled>— Select client —</option>
                 {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
+                  <option key={c.id} value={c.id}>{c.clientName}</option>
                 ))}
               </select>
             </FieldGroup>
@@ -117,7 +117,7 @@ export function NewBookingForm({ clients, trucks, drivers }: Props) {
             </FieldGroup>
             <FieldGroup label="Billing Type">
               <select name="tripBillingType" style={selectStyle} defaultValue="EIGHT_HOUR">
-                <option value="EIGHT_HOUR">8 Hours (local / short trips)</option>
+                <option value="EIGHT_HOUR">Per 8 Hours (local / short trips)</option>
                 <option value="PER_TRIP">Per Trip (long-distance flat rate)</option>
               </select>
             </FieldGroup>
