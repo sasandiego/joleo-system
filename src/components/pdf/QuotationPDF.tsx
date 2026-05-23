@@ -299,7 +299,7 @@ export function QuotationPDF({
           <Text style={s.termsText}>
             {"•  "}This quotation is valid for 7 days from date of issue.{"\n"}
             {"•  "}Parking fees, condo and mall gate passes are paid directly by the client.{"\n"}
-            {"•  "}Toll fees shown are pass-through estimates; actual amounts may vary by route.{"\n"}
+            {"•  "}Toll fees shown are estimates; actual amounts may vary by route.{"\n"}
             {"•  "}Excess hours beyond the included service window are billed at the applicable rate.{"\n"}
             {"•  "}Final booking is subject to truck and crew availability on the requested date.
           </Text>

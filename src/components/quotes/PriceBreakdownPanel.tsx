@@ -150,7 +150,7 @@ export function PriceBreakdownPanel({ result }: Props) {
                 />
               )}
               {result.tollFee > 0 && (
-                <Row label="Toll (pass-through, no markup)" amount={result.tollFee} muted />
+                <Row label="Toll" amount={result.tollFee} muted />
               )}
               <tr style={{ borderTop: "2px solid var(--border)" }}>
                 <td style={{ padding: "10px 0 0", fontWeight: 700, fontSize: 14, color: hasOverride ? "var(--ink)" : "var(--maroon)" }}>

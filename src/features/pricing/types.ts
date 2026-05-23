@@ -18,7 +18,7 @@ export interface PricingInput {
   additionalHelper: boolean;
 
   // Pass-through + overrides
-  tollFee: number; // pass-through, added AFTER markup, no VAT impact
+  tollFee: number; // included in VAT base: vatBase = revenueAfterDiscount + tollFee
   fuelPriceOverride?: number; // overrides RateSettings.dieselPricePerLiter for this quote
   discountAmount: number; // peso amount, subtracted from Revenue Net of VAT
   vatOption: VatOption;
@@ -113,11 +113,11 @@ export interface PricingResult {
   vatAmount: number;
   vatOption: VatOption;
 
-  // Toll (pass-through)
+  // Toll (included in VAT base)
   tollFee: number;
 
   // Final
-  computedFinalPrice: number; // engine output (revenueAfterDiscount + vatAmount + toll)
+  computedFinalPrice: number; // engine output: (revenueAfterDiscount + toll) × (1 + vatRate)
   manualOverridePrice: number | null;
   finalPrice: number; // override if set, else computed
 
