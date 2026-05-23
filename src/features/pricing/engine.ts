@@ -30,17 +30,16 @@ function pct4(v: Decimal): number {
  *
  * Formula (per Joleo_Update_Guide.md SECTION B):
  *   fuel_cost          = MAX(fuelFloor, distance × 2 / efficiency × diesel_price)
- *   base_costs         = fuel + trip_base + distance_charge + other_direct_costs
+ *   base_costs         = fuel + trip_base + distance_charge + other_direct_costs + toll
  *   markup_total       = driverRate + helperRate + overheadRate
  *                        + (longDistanceRate IF distance ≥ threshold)
  *   revenue_net_of_vat = base_costs / (1 - markup_total)
- *   vat_base           = revenue_net_of_vat + toll  (toll is part of the VAT base)
- *   vat                = vat_base × vatRate  (unless NON_VAT)
- *   final              = vat_base + vat
+ *   vat                = revenue_net_of_vat × vatRate  (unless NON_VAT)
+ *   final              = revenue_net_of_vat + vat
  *
- * Toll is included in the VAT base (BIR requirement confirmed by Gina).
+ * Toll is included in base costs — same markup and VAT treatment as all other costs.
  * `manualOverridePrice` (when set) becomes the final price; VAT is back-computed from
- * the override (which already covers toll) for BIR-compliant receipts.
+ * the override for BIR-compliant receipts.
  */
 export function computePrice(input: PricingInput, ctx: PricingContext): PricingResult {
   const { truckType, settings } = ctx;
@@ -133,8 +132,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
     .add(excessHoursFee)
     .add(extraDropoffsFee);
 
-  // ── Base costs (everything that gets marked up) ──────────────────────────
-  const baseCosts = fuelCost.add(tripBase).add(distanceCharge).add(otherDirectSubtotal);
+  // ── Base costs (everything that gets marked up, including toll) ──────────
+  const tollFee = d(input.tollFee);
+  const baseCosts = fuelCost.add(tripBase).add(distanceCharge).add(otherDirectSubtotal).add(tollFee);
 
   // ── Long-distance trigger (auto-derived from distance) ───────────────────
   const isLongDistance = input.estimatedDistanceKm >= longDistanceThresholdKm;
@@ -181,20 +181,17 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   }
 
   // ── VAT (12% by default; locked at BIR rate) ─────────────────────────────
-  // Toll is included in the VAT base per BIR requirement.
-  const tollFee = d(input.tollFee);
-  const vatBase = revenueAfterDiscount.add(tollFee);
   let vatAmount: Decimal;
   if (input.vatOption === "NON_VAT") {
     vatAmount = d(0);
   } else {
     // For both VAT_INCLUSIVE and VAT_EXCLUSIVE, VAT amount is the same.
     // The difference is purely how it's displayed/labeled on the receipt.
-    vatAmount = vatBase.mul(vatRate);
+    vatAmount = revenueAfterDiscount.mul(vatRate);
   }
 
-  // ── Computed final price (vat_base + vat) ────────────────────────────────
-  const computedFinalPrice = vatBase.add(vatAmount);
+  // ── Computed final price (revenue + VAT) ─────────────────────────────────
+  const computedFinalPrice = revenueAfterDiscount.add(vatAmount);
 
   // ── Manual override resolution (admin-set negotiated final) ──────────────
   let finalPrice: Decimal;
@@ -215,15 +212,14 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
       message: `Manual override active: final price ₱${dp2(finalPrice).toLocaleString("en-PH")} (computed ₱${dp2(computedFinalPrice).toLocaleString("en-PH")}).`,
     });
 
-    // Back-compute VAT from the override (override covers revenue + toll + VAT on both)
+    // Back-compute VAT from the override (toll is already inside revenue via base costs)
     if (input.vatOption === "NON_VAT") {
       effectiveVat = d(0);
-      effectiveRevenue = finalPrice.sub(tollFee);
+      effectiveRevenue = finalPrice;
     } else {
-      // finalPrice = (revenue + toll) × (1 + vatRate)  →  solve for revenue
-      const netIncToll = finalPrice.div(d(1).add(vatRate));
-      effectiveVat = finalPrice.sub(netIncToll);
-      effectiveRevenue = netIncToll.sub(tollFee);
+      // finalPrice = revenue × (1 + vatRate)  →  revenue = finalPrice / (1 + vatRate)
+      effectiveRevenue = finalPrice.div(d(1).add(vatRate));
+      effectiveVat = finalPrice.sub(effectiveRevenue);
     }
   } else {
     finalPrice = computedFinalPrice;
