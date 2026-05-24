@@ -477,6 +477,20 @@ async function main() {
     });
   }
 
+  // ── CompanyProfile ────────────────────────────────────────
+  console.log("  → CompanyProfile");
+  await prisma.companyProfile.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      phone: "(02) 7000-8985",
+      mobile: "0917-132-9915",
+      email: "joleo.transport@gmail.com",
+      address: "GSIS Hills, Talipapa, Caloocan",
+    },
+  });
+
   // ── PaymentConfig ─────────────────────────────────────────
   console.log("  → PaymentConfig");
   await prisma.paymentConfig.upsert({
@@ -484,6 +498,7 @@ async function main() {
     update: {},
     create: {
       id: 1,
+      companyProfileId: 1,
       bank1Name: "EASTWEST BANK",
       bank1Holder: "JOLEO TRANSPORT",
       bank1Account: "200048853462",

@@ -7,6 +7,7 @@ export default async function PaymentConfigPage() {
     update: {},
     create: {
       id: 1,
+      companyProfileId: 1,
       bank1Name: "EASTWEST BANK",
       bank1Holder: "JOLEO TRANSPORT",
       bank1Account: "200048853462",

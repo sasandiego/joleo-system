@@ -27,7 +27,7 @@ export async function updatePaymentConfigAction(
   await db.paymentConfig.upsert({
     where: { id: 1 },
     update: data,
-    create: { id: 1, ...data },
+    create: { id: 1, companyProfileId: 1, ...data },
   });
 
   revalidatePath("/payment-config");

@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import type { PricingResult } from "@/features/pricing/types";
 import Link from "next/link";
 import { ClientMessageDrafter } from "@/components/quotes/ClientMessageDrafter";
+import { SendEmailButton } from "@/components/quotes/SendEmailButton";
 import { convertQuoteToBookingAction } from "@/actions/quotes";
 
 interface Props {
@@ -16,9 +17,9 @@ export default async function QuoteDetailPage({ params }: Props) {
   const quote = await db.quote.findUnique({
     where: { id },
     include: {
-      client: { select: { clientName: true, contactPerson: true } },
+      client: { select: { clientName: true, contactPerson: true, email: true } },
       createdBy: { select: { username: true } },
-      booking: { select: { bookingNo: true, id: true } },
+      booking: { select: { bookingNo: true, id: true, status: true } },
     },
   });
 
@@ -34,6 +35,11 @@ export default async function QuoteDetailPage({ params }: Props) {
   const pricing = quote.pricingSnapshot as unknown as PricingResult;
 
   const hasOverride = pricing.manualOverridePrice !== null && pricing.manualOverridePrice !== undefined;
+
+  const canSendEmail =
+    !!quote.client?.email &&
+    !!quote.booking &&
+    ["CONFIRMED", "DISPATCHED", "COMPLETED"].includes(quote.booking.status);
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -94,6 +100,12 @@ export default async function QuoteDetailPage({ params }: Props) {
             </button>
           </form>
         )}
+        <SendEmailButton
+          quoteId={quote.id}
+          quoteNo={quote.quoteNo}
+          clientEmail={quote.client?.email ?? null}
+          canSend={canSendEmail}
+        />
         <a
           href={`/api/quotes/${quote.id}/pdf`}
           target="_blank"

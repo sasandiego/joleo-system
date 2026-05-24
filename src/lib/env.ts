@@ -8,6 +8,7 @@ const envSchema = z.object({
   LITELLM_BASE_URL: z.string().url().optional(),
   LITELLM_API_KEY: z.string().optional(),
   LITELLM_MODEL: z.string().optional(),
+  RESEND_API_KEY: z.string().min(1),
   SEED_ADMIN_1_USERNAME: z.string().optional(),
   SEED_ADMIN_1_PASSWORD: z.string().optional(),
   SEED_ADMIN_1_FULLNAME: z.string().optional(),

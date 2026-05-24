@@ -203,16 +203,28 @@ model RateSettings {
 
 // SINGLETON: only one row, id = 1. Payment method details shown on PDF quotations.
 model PaymentConfig {
-  id           Int      @id @default(1)
-  bank1Name    String   @default("EASTWEST BANK")
-  bank1Holder  String   @default("JOLEO TRANSPORT")
-  bank1Account String   @default("200048853462")
-  bank2Name    String   @default("BDO UNIBANK")
-  bank2Holder  String   @default("JOLEO TRANSPORT")
-  bank2Account String   @default("013208001304")
-  gcashHolder  String   @default("LEOVINA SALVADOR")
-  gcashNumber  String   @default("09178305652")
-  updatedAt    DateTime @updatedAt
+  id               Int            @id @default(1)
+  companyProfileId Int            @unique
+  companyProfile   CompanyProfile @relation(fields: [companyProfileId], references: [id])
+  bank1Name        String         @default("EASTWEST BANK")
+  bank1Holder      String         @default("JOLEO TRANSPORT")
+  bank1Account     String         @default("200048853462")
+  bank2Name        String         @default("BDO UNIBANK")
+  bank2Holder      String         @default("JOLEO TRANSPORT")
+  bank2Account     String         @default("013208001304")
+  gcashHolder      String         @default("LEOVINA SALVADOR")
+  gcashNumber      String         @default("09178305652")
+  updatedAt        DateTime       @updatedAt
+}
+
+// SINGLETON: only one row, id = 1. Joleo Transport company contact details.
+model CompanyProfile {
+  id            Int            @id @default(1)
+  phone         String
+  mobile        String
+  email         String
+  address       String
+  paymentConfig PaymentConfig?
 }
 
 model Quote {
