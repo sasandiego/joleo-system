@@ -20,7 +20,7 @@ export async function generateQuotePdf(quoteId: string): Promise<Buffer> {
     quote.truckTypeId
       ? db.truckType.findUnique({ where: { id: quote.truckTypeId }, select: { label: true } })
       : null,
-    db.paymentConfig.findUnique({ where: { id: 1 } }),
+    db.paymentConfig.findUnique({ where: { id: 1 }, include: { companyProfile: true } }),
   ]);
 
   const pricing = quote.pricingSnapshot as unknown as PricingResult;
@@ -44,6 +44,7 @@ export async function generateQuotePdf(quoteId: string): Promise<Buffer> {
       serviceDescription={quote.serviceDescription}
       paymentTerms={quote.paymentTerms}
       paymentConfig={paymentConfig}
+      companyProfile={paymentConfig?.companyProfile ?? null}
     />
   ) as Promise<Buffer>;
 }

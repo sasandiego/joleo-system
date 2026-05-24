@@ -210,6 +210,9 @@ interface QuotationPDFProps {
     bank2Name: string; bank2Holder: string; bank2Account: string;
     gcashHolder: string; gcashNumber: string;
   } | null;
+  companyProfile?: {
+    phone: string; mobile: string; email: string; address: string;
+  } | null;
 }
 
 export function QuotationPDF({
@@ -229,6 +232,7 @@ export function QuotationPDF({
   serviceDescription,
   paymentTerms,
   paymentConfig,
+  companyProfile,
 }: QuotationPDFProps) {
   const { inputsSnapshot: inp } = pricing;
   const vatOpt = inp.vatOption;
@@ -441,9 +445,11 @@ export function QuotationPDF({
         </View>
 
         <View style={s.footer} fixed>
-          <Text style={s.footerText}>Joleo Transport · Caloocan City</Text>
+          <Text style={s.footerText}>
+            {companyProfile ? `${companyProfile.phone}  ·  ${companyProfile.mobile}  ·  ${companyProfile.email}` : "Joleo Transport · Caloocan City"}
+          </Text>
           <Text style={s.footerText}>Prepared by: {createdBy}</Text>
-          <Text style={s.footerText}>Thank you for your business.</Text>
+          <Text style={s.footerText}>{companyProfile ? companyProfile.address : "Thank you for your business."}</Text>
         </View>
 
       </Page>
