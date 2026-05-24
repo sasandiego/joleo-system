@@ -25,9 +25,12 @@ export async function GET(
 
   if (!quote) return new Response("Not found", { status: 404 });
 
-  const truckType = quote.truckTypeId
-    ? await db.truckType.findUnique({ where: { id: quote.truckTypeId }, select: { label: true } })
-    : null;
+  const [truckType, paymentConfig] = await Promise.all([
+    quote.truckTypeId
+      ? db.truckType.findUnique({ where: { id: quote.truckTypeId }, select: { label: true } })
+      : null,
+    db.paymentConfig.findUnique({ where: { id: 1 } }),
+  ]);
 
   const pricing = quote.pricingSnapshot as unknown as PricingResult;
 
@@ -50,6 +53,8 @@ export async function GET(
         createdAt={formatDate(quote.createdAt)}
         createdBy={quote.createdBy.username}
         serviceDescription={quote.serviceDescription}
+        paymentTerms={quote.paymentTerms}
+        paymentConfig={paymentConfig}
       />
     );
   } catch (err) {

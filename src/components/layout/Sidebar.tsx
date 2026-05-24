@@ -28,6 +28,7 @@ const navSections = [
     title: "Configuration",
     items: [
       { href: "/pricing-config", label: "Pricing Config" },
+      { href: "/payment-config", label: "Payment Details" },
       { href: "/users", label: "Users" },
     ],
   },

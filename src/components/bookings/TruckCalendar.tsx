@@ -38,8 +38,8 @@ interface Props {
 const BOOKING_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   CONFIRMED: { bg: "var(--maroon)", color: "white", border: "var(--maroon)" },
   DISPATCHED: { bg: "var(--ink)", color: "white", border: "var(--ink)" },
+  QUOTED: { bg: "var(--warning)", color: "white", border: "var(--warning)" },
   DRAFT: { bg: "white", color: "var(--fg)", border: "var(--border-strong)" },
-  QUOTED: { bg: "white", color: "var(--fg)", border: "var(--border-strong)" },
 };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -54,6 +54,15 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
     if (!index[b.truckId]) index[b.truckId] = {};
     index[b.truckId][dateStr] = b;
   }
+
+  // Sort trucks: DISPATCHED → CONFIRMED → DRAFT/QUOTED → unbooked (then by code)
+  const STATUS_RANK: Record<string, number> = { DISPATCHED: 0, CONFIRMED: 1, DRAFT: 2, QUOTED: 2 };
+  const truckRank = (truck: TruckRow) => {
+    const days = Object.values(index[truck.id] ?? {});
+    if (days.length === 0) return 3;
+    return Math.min(...days.map((b) => STATUS_RANK[b.status] ?? 3));
+  };
+  const sortedTrucks = [...trucks].sort((a, b) => truckRank(a) - truckRank(b) || a.code.localeCompare(b.code));
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
@@ -86,9 +95,10 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
       {/* Legend */}
       <div style={{ display: "flex", gap: 20, marginBottom: 16, fontSize: 12, alignItems: "center", flexWrap: "wrap" }}>
         {[
-          { label: "Confirmed", bg: "var(--maroon)", border: "var(--maroon)", dashed: false },
           { label: "Dispatched", bg: "var(--ink)", border: "var(--ink)", dashed: false },
-          { label: "Draft / Pending", bg: "white", border: "var(--border-strong)", dashed: true },
+          { label: "Confirmed", bg: "var(--maroon)", border: "var(--maroon)", dashed: false },
+          { label: "Quoted", bg: "var(--warning)", border: "var(--warning)", dashed: false },
+          { label: "Draft", bg: "white", border: "var(--border-strong)", dashed: true },
           { label: "Unavailable", bg: "repeating-linear-gradient(45deg,#F0EFEC,#F0EFEC 3px,white 3px,white 6px)", border: "var(--border)", dashed: false },
         ].map(({ label, bg, border, dashed }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -157,7 +167,7 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
         })}
 
         {/* Truck rows */}
-        {trucks.map((truck, ti) => {
+        {sortedTrucks.map((truck, ti) => {
           const isUnavailable = truck.status !== "ACTIVE";
           const rowBg = ti % 2 === 0 ? "transparent" : "var(--surface)";
 
@@ -218,7 +228,7 @@ export function TruckCalendar({ trucks, bookings, days, weekLabel, prevWeek, nex
                   >
                     {booking && !isUnavailable && (() => {
                       const style = BOOKING_COLORS[booking.status] ?? BOOKING_COLORS.DRAFT;
-                      const isDashed = booking.status === "DRAFT" || booking.status === "QUOTED";
+                      const isDashed = booking.status === "DRAFT";
                       const shortClient = booking.clientName.split(" ")[0];
                       const shortPickup = booking.pickup.split(",")[0].slice(0, 6);
                       const shortDropoff = booking.dropoff.split(",")[0].slice(0, 6);

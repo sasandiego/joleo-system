@@ -140,7 +140,6 @@ model Client {
   email         String?
   tin           String?
   address       String?            @db.Text
-  paymentTerms  String?
   notes         String?
   isActive      Boolean            @default(true)
   createdAt     DateTime           @default(now())
@@ -202,6 +201,20 @@ model RateSettings {
   updatedBy String?
 }
 
+// SINGLETON: only one row, id = 1. Payment method details shown on PDF quotations.
+model PaymentConfig {
+  id           Int      @id @default(1)
+  bank1Name    String   @default("EASTWEST BANK")
+  bank1Holder  String   @default("JOLEO TRANSPORT")
+  bank1Account String   @default("200048853462")
+  bank2Name    String   @default("BDO UNIBANK")
+  bank2Holder  String   @default("JOLEO TRANSPORT")
+  bank2Account String   @default("013208001304")
+  gcashHolder  String   @default("LEOVINA SALVADOR")
+  gcashNumber  String   @default("09178305652")
+  updatedAt    DateTime @updatedAt
+}
+
 model Quote {
   id       String   @id @default(cuid())
   quoteNo  String   @unique // "QT-20260519-0001"
@@ -245,6 +258,7 @@ model Quote {
 
   serviceDescription String? @db.Text
   notes              String? @db.Text
+  paymentTerms       String? @db.Text
 
   // Schedule — when the move will happen. Date is captured at quote time, time is optional.
   scheduledDate      DateTime? @db.Date

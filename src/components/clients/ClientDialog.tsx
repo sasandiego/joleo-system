@@ -20,7 +20,6 @@ interface ClientDialogProps {
     email: string | null;
     tin: string | null;
     address: string | null;
-    paymentTerms: string | null;
     notes: string | null;
     isActive: boolean;
   };
@@ -49,7 +48,6 @@ function SubmitButtonWithLabel({ mode }: { mode: "add" | "edit" }) {
   );
 }
 
-const PAYMENT_TERMS = ["COD", "1 WEEK", "2 WEEKS", "30 DAYS", "45 DAYS"];
 
 // Strip everything except digits, +, -, space, parens — silently as the user types.
 // User can't type "abc" or "@" into a phone field; the keystroke just produces nothing.
@@ -100,7 +98,7 @@ export function ClientDialog({ mode, client }: ClientDialogProps) {
   const [email, setEmail] = useState(client?.email ?? "");
   const [tin, setTin] = useState(client?.tin ?? "");
   const [address, setAddress] = useState(client?.address ?? "");
-  const [paymentTerms, setPaymentTerms] = useState(client?.paymentTerms ?? "");
+
   const [notes, setNotes] = useState(client?.notes ?? "");
 
   // Re-sync state when the dialog opens — for Add this resets to empty,
@@ -115,7 +113,6 @@ export function ClientDialog({ mode, client }: ClientDialogProps) {
       setEmail(client?.email ?? "");
       setTin(client?.tin ?? "");
       setAddress(client?.address ?? "");
-      setPaymentTerms(client?.paymentTerms ?? "");
       setNotes(client?.notes ?? "");
     }
   }, [open, client?.id]);
@@ -358,17 +355,6 @@ export function ClientDialog({ mode, client }: ClientDialogProps) {
                     title="System-generated, not editable."
                   />
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={labelStyle}>Payment Terms</label>
-                  <input type="hidden" name="paymentTerms" value={paymentTerms} />
-                  <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} style={inputStyle}>
-                    <option value="">— Select —</option>
-                    {PAYMENT_TERMS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-
                 {/* Contact Person — shown for ALL types (person in charge can differ) */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "span 2" }}>
                   <label style={labelStyle}>

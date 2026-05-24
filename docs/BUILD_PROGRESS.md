@@ -1,7 +1,7 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-22 (late session — Phase 1.5: Clients & AI complete)
+Last updated: 2026-05-24 (no code changes — docs + planning session; system unchanged)
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
@@ -41,7 +41,7 @@ Last updated: 2026-05-22 (late session — Phase 1.5: Clients & AI complete)
 - `src/features/pricing/types.ts` — PricingInput, PricingContext, PricingResult, BillingType, revenue allocation fields
 - `src/features/pricing/engine.ts` — pure `computePrice(input, ctx)`, bottom-up revenue model, no DB access
 - Bottom-up formula: `revenue_net_of_vat = base_costs / (1 - markup_total)`
-- Fuel: `MAX(fuelFloor, distance × 2 / efficiency × price)`; toll added after markup (true pass-through)
+- Fuel: `MAX(fuelFloor, distance × 2 / efficiency × price)`; toll in base costs (same markup + VAT as all other costs)
 - VAT_INCLUSIVE / VAT_EXCLUSIVE / NON_VAT handling; manual override back-computes effectiveVatAmount
 - `src/features/pricing/engine.test.ts` — 30 test cases, **30/30 pass** (worked example ₱5,932.14, fuel floor, long-distance, billing types, VAT modes, toll, discount, override, service flags, snapshot integrity)
 - `pnpm exec tsc --noEmit` ✅ clean | `pnpm test --run` ✅ 30/30
@@ -62,6 +62,8 @@ Last updated: 2026-05-22 (late session — Phase 1.5: Clients & AI complete)
 - `/bookings/new` — standalone booking form with billing type dropdown
 - `/bookings/[id]` — assignment form + status transitions + billing type display
 - `/calendar` — week grid, color-coded booking blocks, week nav via URL `?week=`
+- Calendar truck rows sorted by booking status priority: DISPATCHED → CONFIRMED → QUOTED → DRAFT → unbooked (ties by code)
+- Calendar "Quoted" status: amber (#B8801C) solid border + white text; distinct from DRAFT (white/dashed); legend reordered to match priority
 
 ### M8 — Dashboard ⭐
 - `/dashboard` — live stat cards (Active Bookings, Fleet Active, Quotes MTD, Revenue MTD)
@@ -70,6 +72,7 @@ Last updated: 2026-05-22 (late session — Phase 1.5: Clients & AI complete)
 ### M9 — Dockerize + Deploy
 - `docker-compose.yml`, `Dockerfile`, `docker/Caddyfile`, Cloudflare Tunnel config
 - `output: "standalone"` in `next.config.ts`
+- `.dockerignore` created: excludes `.next/cache`, `node_modules`, `.git`, `.env*.local`
 
 ### M10 — Polish + Testing
 - `TEST_GUIDE.md` — full manual testing walkthrough for all Phase 1 features
@@ -175,16 +178,55 @@ Last updated: 2026-05-22 (late session — Phase 1.5: Clients & AI complete)
 
 **Files this phase:** ~22 modified, ~3 created (`src/lib/ai.ts`, `src/actions/ai-quotes.ts`, `src/components/quotes/ClientMessageDrafter.tsx`), 1 deleted (`scripts/import-clients.ts`)
 
-### Post-Phase 1.5 polish (2026-05-23)
-**Bug fixes**
-- Quotes list "Date & Time" was showing `createdAt` (creation timestamp) — now shows `scheduledDate + scheduledStartTime`; falls back to `createdAt` for old quotes without a scheduled date
-- `trucks/page.tsx` was passing raw Prisma Decimal objects (`eightHourBaseRate`, `perTripBaseRate`, `dailyRate`, `excessHourRate` on TruckType) to `TruckListClient` — caused "Decimal objects are not supported" RSC crash; fixed with explicit `.map()` + `.toNumber()`; `TruckListClient` field types updated from `unknown` → `number`
+### 2026-05-23 — Booking UX overhaul + toll BIR fix ⭐
 
-**UX improvements**
-- Bookings list: `bookingNo` is now a clickable maroon link to `/bookings/[id]` (same pattern as Quote No.); start time shown as muted second line in Date column when set
-- Booking Detail: truck dropdown options show truck type label (`V5 — ABC 1234 · 14 ftr - 6 wheels`); "Quoted Truck Type" row added to Booking Information card; ⚠ mismatch warning under dropdown when assigned truck type differs from quoted type
+**Bug fixes (earlier in session)**
+- Quotes list "Date & Time" showing `createdAt` → now shows `scheduledDate + scheduledStartTime`; falls back to `createdAt` for old quotes
+- `trucks/page.tsx` raw Prisma Decimal objects passed to `TruckListClient` → "Decimal objects not supported" RSC crash; fixed with `.map()` + `.toNumber()`
 
-**Files changed:** `src/app/(admin)/quotes/page.tsx`, `src/components/quotes/QuoteListClient.tsx`, `src/app/(admin)/bookings/page.tsx`, `src/components/bookings/BookingListClient.tsx`, `src/app/(admin)/bookings/[id]/page.tsx`, `src/components/bookings/BookingDetailClient.tsx`, `src/app/(admin)/trucks/page.tsx`, `src/components/trucks/TruckListClient.tsx`
+**Booking UX — Quoted Truck Type visibility**
+- "Quoted Truck Type" DetailRow in Booking Information card (server-resolved label)
+- Truck dropdown options show type label: `V5 — ABC 1234 · 14 ftr 6W`
+- ⚠ mismatch warning when assigned truck type ≠ quoted type
+
+**Booking UX — End Time auto-compute**
+- `handleStartTimeChange` adds `estimatedHours` to start time and fills End Time client-side
+- Billing type label renamed "8 Hours" → "Per 8 Hours" across 5 surfaces (QuoteBuilderForm, quote detail, booking detail, NewBookingForm, PDF)
+
+**Booking assignment form — React 19 definitive fix**
+- Switched from `<form action={serverAction}>` to `<form onSubmit={handleAssignSubmit}>`
+- Manual FormData built from React state in `startTransition` — immune to form reset lifecycle
+- Truck/driver/date/notes all fully controlled; no hidden-input workarounds needed
+
+**Driver conflict detection**
+- `checkDriverConflict(driverId, date, excludeBookingId?)` in `src/actions/bookings.ts`
+- Mirrors `checkTruckConflict` pattern; wired into all three booking actions
+
+**Auto-recompute quoted amount on truck type change**
+- `useMemo` in BookingDetailClient calls `computePrice()` client-side when `selectedTruckId` maps to a different truck type than `booking.quotedTruckTypeId`
+- Financials section shows Original (strikethrough) and Recomputed (maroon) amounts
+- `recomputedAmount` appended to FormData on save; stored to `quotedAmount` in DB
+
+**Price recomputation history**
+- `AuditLog` action `BOOKING_PRICE_UPDATED`: `before/after` JSON includes quotedAmount, truckType label, username
+- Booking detail fetches history and shows Price History card (descending, Asia/Manila timestamps)
+
+**Toll formula finalized — toll in base costs**
+- Iterated: pass-through → VAT base → **base costs** (final, per Shem: "for simplicity")
+- `base_costs = fuel + tripBase + distance + other + toll`; toll gets same markup + VAT as all other costs
+- Override back-compute simplified: `effectiveRevenue = override / (1 + vatRate)` — no toll subtraction
+- Stale "pass-through" labels cleared: PriceBreakdownPanel.tsx, types.ts comments, PDF terms text
+- UI label everywhere: "Toll" (no "pass-through" qualifier)
+- 30/30 tests updated; TSC clean; all pushed to origin/main
+
+### 2026-05-23 — PDF upgrades + Payment Config (Vyela feedback) ⭐
+- `paymentTerms` moved Client→Quote: schema migration (`20260523000000_quote_payment_terms`), 12+ files updated; pre-filled default in Quote Builder Section C
+- PDF: "Payment Terms" section (from quote field); "Payment Details" 3-column bank/GCash cards (from PaymentConfig DB); "Conforme" signature block
+- PDF layout tightened throughout (paddingTop, section margins, row padding) to maintain single-page output
+- `PaymentConfig` singleton model + migration (`20260523100000_payment_config`); seeded EastWest/BDO/GCash
+- `/payment-config` admin page (sidebar: Configuration → Payment Details); editable 3-card form
+- Calendar: truck rows sorted by booking status priority; Quoted status amber color (#B8801C); legend reordered
+- `.dockerignore` created; dev server restarted (2.5GB→352MB RAM)
 
 ## 🧪 Experimental (treat as fragile)
 _(none)_
@@ -192,6 +234,7 @@ _(none)_
 ## 🚫 Known Issues (Deprioritized)
 - AUTH_TRUST_HOST=true in .env.local — dev server port no longer matters
 - **Joleo_Update_Guide.md** — worked-example ₱ figure is outdated; correct value is ₱5,932.14 (confirmed by engine tests). Guide doc not yet updated.
+- **Mobile responsiveness** — not yet implemented. Scoped: ~25 files, 3–4 sessions. Complex forms: Quote Builder + Booking Detail. Decision pending with Shem/Vyela.
 
 ## Milestone Status
 | # | Milestone | Status |
@@ -208,3 +251,4 @@ _(none)_
 | M10 | Polish + Testing | ✅ Complete |
 | — | Pricing Engine Refactor (6-phase) | ✅ Complete |
 | — | Phase 1.5 — Clients & AI | ✅ Complete |
+| — | PDF Upgrades + PaymentConfig (Vyela) | ✅ Complete |

@@ -18,7 +18,6 @@ interface Client {
   email: string | null;
   tin: string | null;
   address: string | null;
-  paymentTerms: string | null;
   notes: string | null;
   isActive: boolean;
 }
@@ -145,7 +144,7 @@ export function ClientListClient({ clients }: ClientListClientProps) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Code", "Client", "Contact Person", "Mobile", "Payment Terms", "Status", "Actions"].map(
+              {["Code", "Client", "Contact Person", "Mobile", "Status", "Actions"].map(
                 (col) => (
                   <th
                     key={col}
@@ -257,31 +256,6 @@ export function ClientListClient({ clients }: ClientListClientProps) {
                     }}
                   >
                     {client.mobile ?? (client.landline ? `☎ ${client.landline}` : "—")}
-                  </td>
-                  <td
-                    style={{
-                      padding: "14px 24px",
-                      color: "var(--ink-soft)",
-                      borderBottom: "1px solid var(--border)",
-                    }}
-                  >
-                    {client.paymentTerms ? (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "3px 9px",
-                          borderRadius: 999,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: "var(--maroon-tint)",
-                          color: "var(--maroon)",
-                        }}
-                      >
-                        {client.paymentTerms}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
                   </td>
                   <td
                     style={{

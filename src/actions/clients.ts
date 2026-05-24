@@ -44,7 +44,6 @@ const clientSchema = z.object({
     .pipe(z.string().email().optional()),
   tin: z.string().optional(),
   address: z.string().optional(),
-  paymentTerms: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -62,7 +61,6 @@ export async function upsertClientAction(
     email: formData.get("email") || "",
     tin: formData.get("tin") || undefined,
     address: formData.get("address") || undefined,
-    paymentTerms: formData.get("paymentTerms") || undefined,
     notes: formData.get("notes") || undefined,
   };
   const parsed = clientSchema.safeParse(raw);
@@ -78,7 +76,6 @@ export async function upsertClientAction(
       email: data.email ?? null,
       tin: data.tin ?? null,
       address: data.address ?? null,
-      paymentTerms: data.paymentTerms ?? null,
       notes: data.notes ?? null,
     };
     if (id) {

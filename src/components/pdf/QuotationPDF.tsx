@@ -20,9 +20,9 @@ const s = StyleSheet.create({
   page: {
     fontFamily: "DejaVu",
     fontSize: 9,
-    paddingTop: 32,
-    paddingBottom: 52,
-    paddingHorizontal: 40,
+    paddingTop: 24,
+    paddingBottom: 48,
+    paddingHorizontal: 38,
     color: "#1a1a1a",
   },
 
@@ -31,16 +31,16 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
     borderBottom: "2pt solid #6b1924",
-    paddingBottom: 8,
-    marginBottom: 14,
+    paddingBottom: 6,
+    marginBottom: 10,
   },
-  brandMark: { fontSize: 20, fontWeight: 700, color: BRAND },
+  brandMark: { fontSize: 18, fontWeight: 700, color: BRAND },
   brandSub: { fontSize: 7, color: MUTED, letterSpacing: 2, marginTop: 2 },
   headerRight: { alignItems: "flex-end" },
-  quotationLabel: { fontSize: 12, fontWeight: 700, color: BRAND },
+  quotationLabel: { fontSize: 11, fontWeight: 700, color: BRAND },
   quoteNo: { fontSize: 8, color: MUTED, marginTop: 2 },
 
-  section: { marginBottom: 10 },
+  section: { marginBottom: 7 },
   sectionTitle: {
     fontSize: 6.5,
     fontWeight: 700,
@@ -48,35 +48,35 @@ const s = StyleSheet.create({
     color: BRAND,
     textTransform: "uppercase",
     borderBottom: "0.5pt solid #6b1924",
-    paddingBottom: 3,
-    marginBottom: 6,
+    paddingBottom: 2,
+    marginBottom: 4,
   },
 
   gridRow: {
     flexDirection: "row",
     borderBottom: "0.5pt solid #f0f0f0",
-    paddingVertical: 3,
+    paddingVertical: 2,
   },
   gridCell: { flex: 1, paddingRight: 8 },
   gridCellRight: { flex: 1, paddingLeft: 8, borderLeft: "0.5pt solid #f0f0f0" },
-  detailLabel: { fontSize: 7, color: MUTED, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 1 },
-  detailValue: { fontSize: 9 },
+  detailLabel: { fontSize: 6.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 1 },
+  detailValue: { fontSize: 8.5 },
 
   bulletGrid: { flexDirection: "row", flexWrap: "wrap" },
-  bulletItem: { width: "50%", fontSize: 8.5, paddingVertical: 2 },
+  bulletItem: { width: "50%", fontSize: 8, paddingVertical: 1.5 },
 
-  priceRow: { flexDirection: "row", paddingVertical: 3.5 },
-  priceRowMuted: { flexDirection: "row", paddingVertical: 2.5 },
+  priceRow: { flexDirection: "row", paddingVertical: 2.5 },
+  priceRowMuted: { flexDirection: "row", paddingVertical: 2 },
   priceLabel: { flex: 1, fontSize: 9 },
   priceLabelMuted: { flex: 1, fontSize: 8.5, color: MUTED },
   priceValue: { fontSize: 9, textAlign: "right", minWidth: 90 },
   priceValueMuted: { fontSize: 8.5, color: MUTED, textAlign: "right", minWidth: 90 },
-  priceDivider: { borderTop: "1.5pt solid #6b1924", marginTop: 5, marginBottom: 3 },
-  totalRow: { flexDirection: "row", paddingTop: 4 },
-  totalLabel: { flex: 1, fontSize: 10.5, fontWeight: 700 },
-  totalValue: { fontSize: 14, color: BRAND, textAlign: "right", minWidth: 90 },
+  priceDivider: { borderTop: "1.5pt solid #6b1924", marginTop: 4, marginBottom: 2 },
+  totalRow: { flexDirection: "row", paddingTop: 3 },
+  totalLabel: { flex: 1, fontSize: 10, fontWeight: 700 },
+  totalValue: { fontSize: 13, color: BRAND, textAlign: "right", minWidth: 90 },
 
-  serviceDesc: { fontSize: 8.5, color: "#333333", lineHeight: 1.5, marginBottom: 10 },
+  serviceDesc: { fontSize: 8.5, color: "#333333", lineHeight: 1.4, marginBottom: 7 },
 
   termsTitle: {
     fontSize: 6.5,
@@ -84,9 +84,82 @@ const s = StyleSheet.create({
     color: MUTED,
     textTransform: "uppercase",
     letterSpacing: 1,
+    marginBottom: 3,
+  },
+  termsText: { fontSize: 7.5, color: MUTED, lineHeight: 1.45 },
+
+  conformeBox: {
+    marginTop: 10,
+    borderTop: "1pt solid #e0e0e0",
+    paddingTop: 8,
+  },
+  conformeTitle: {
+    fontSize: 7,
+    fontWeight: 700,
+    letterSpacing: 1.5,
+    color: BRAND,
+    textTransform: "uppercase",
+    marginBottom: 5,
+  },
+  conformeRow: {
+    flexDirection: "row",
+    gap: 24,
     marginBottom: 4,
   },
-  termsText: { fontSize: 8, color: MUTED, lineHeight: 1.6 },
+  conformeField: {
+    flex: 1,
+  },
+  conformeLine: {
+    borderBottom: "0.75pt solid #555",
+    marginBottom: 3,
+    height: 16,
+  },
+  conformeFieldLabel: {
+    fontSize: 6.5,
+    color: MUTED,
+    letterSpacing: 0.3,
+  },
+  conformeNote: {
+    fontSize: 7,
+    color: MUTED,
+    lineHeight: 1.4,
+    marginBottom: 8,
+  },
+
+  paymentDetailsBox: {
+    marginBottom: 6,
+  },
+  paymentMethodsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 4,
+  },
+  paymentMethod: {
+    flex: 1,
+    background: "#fafaf9",
+    borderRadius: 3,
+    padding: "6pt 8pt",
+    border: "0.5pt solid #e8e5e3",
+  },
+  paymentMethodLabel: {
+    fontSize: 6,
+    fontWeight: 700,
+    color: BRAND,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 3,
+  },
+  paymentMethodLine: {
+    fontSize: 7.5,
+    color: "#333",
+    marginBottom: 1,
+  },
+  paymentMethodAccount: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: "#1a1a1a",
+    marginTop: 2,
+  },
 
   footer: {
     position: "absolute",
@@ -131,6 +204,12 @@ interface QuotationPDFProps {
   createdAt: string;
   createdBy: string;
   serviceDescription?: string | null;
+  paymentTerms?: string | null;
+  paymentConfig?: {
+    bank1Name: string; bank1Holder: string; bank1Account: string;
+    bank2Name: string; bank2Holder: string; bank2Account: string;
+    gcashHolder: string; gcashNumber: string;
+  } | null;
 }
 
 export function QuotationPDF({
@@ -148,6 +227,8 @@ export function QuotationPDF({
   createdAt,
   createdBy,
   serviceDescription,
+  paymentTerms,
+  paymentConfig,
 }: QuotationPDFProps) {
   const { inputsSnapshot: inp } = pricing;
   const vatOpt = inp.vatOption;
@@ -293,8 +374,40 @@ export function QuotationPDF({
           </View>
         </View>
 
-        {/* ── Terms ── */}
-        <View>
+        {/* ── Payment Terms ── */}
+        <View style={{ marginBottom: 6 }}>
+          <Text style={s.termsTitle}>Payment Terms</Text>
+          <Text style={s.termsText}>
+            {paymentTerms ?? "20% downpayment required to confirm booking (non-refundable, non-cancellable but re-bookable). Accepted payment methods: Cash, Bank Transfer, GCash Send Money."}
+          </Text>
+        </View>
+
+        {/* ── Payment Details ── */}
+        {paymentConfig && (
+          <View style={s.paymentDetailsBox}>
+            <Text style={s.termsTitle}>Payment Details</Text>
+            <View style={s.paymentMethodsRow}>
+              <View style={s.paymentMethod}>
+                <Text style={s.paymentMethodLabel}>{paymentConfig.bank1Name}</Text>
+                <Text style={s.paymentMethodLine}>{paymentConfig.bank1Holder}</Text>
+                <Text style={s.paymentMethodAccount}>{paymentConfig.bank1Account}</Text>
+              </View>
+              <View style={s.paymentMethod}>
+                <Text style={s.paymentMethodLabel}>{paymentConfig.bank2Name}</Text>
+                <Text style={s.paymentMethodLine}>{paymentConfig.bank2Holder}</Text>
+                <Text style={s.paymentMethodAccount}>{paymentConfig.bank2Account}</Text>
+              </View>
+              <View style={s.paymentMethod}>
+                <Text style={s.paymentMethodLabel}>GCash</Text>
+                <Text style={s.paymentMethodLine}>{paymentConfig.gcashHolder}</Text>
+                <Text style={s.paymentMethodAccount}>{paymentConfig.gcashNumber}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* ── General Terms ── */}
+        <View style={{ marginBottom: 0 }}>
           <Text style={s.termsTitle}>Terms & Conditions</Text>
           <Text style={s.termsText}>
             {"•  "}This quotation is valid for 7 days from date of issue.{"\n"}
@@ -303,6 +416,28 @@ export function QuotationPDF({
             {"•  "}Excess hours beyond the included service window are billed at the applicable rate.{"\n"}
             {"•  "}Final booking is subject to truck and crew availability on the requested date.
           </Text>
+        </View>
+
+        {/* ── Conforme ── */}
+        <View style={s.conformeBox}>
+          <Text style={s.conformeTitle}>Conforme</Text>
+          <Text style={s.conformeNote}>
+            I/We have read and agree to the terms and conditions stated in this quotation.
+          </Text>
+          <View style={s.conformeRow}>
+            <View style={s.conformeField}>
+              <View style={s.conformeLine} />
+              <Text style={s.conformeFieldLabel}>Signature over Printed Name</Text>
+            </View>
+            <View style={s.conformeField}>
+              <View style={s.conformeLine} />
+              <Text style={s.conformeFieldLabel}>Position / Title (if applicable)</Text>
+            </View>
+            <View style={[s.conformeField, { flex: 0.6 }]}>
+              <View style={s.conformeLine} />
+              <Text style={s.conformeFieldLabel}>Date</Text>
+            </View>
+          </View>
         </View>
 
         <View style={s.footer} fixed>

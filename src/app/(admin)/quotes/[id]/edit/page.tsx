@@ -55,6 +55,7 @@ export default async function EditQuotePage({ params }: Props) {
     vatOption: quote.vatOption,
     serviceDescription: quote.serviceDescription,
     notes: quote.notes,
+    paymentTerms: quote.paymentTerms,
     scheduledDate: quote.scheduledDate
       ? quote.scheduledDate.toISOString().slice(0, 10)
       : null,

@@ -221,7 +221,7 @@ export default async function ClientDetailPage({ params }: Props) {
               : <span style={emptyValue}>—</span>}
           </div>
 
-          <div style={cell}>
+          <div style={{ ...cell, borderBottom: "none" }}>
             <span style={label}>
               {client.type === "INDIVIDUAL_PERSON" ? "Address"
                 : client.type === "INDIVIDUAL_BUSINESS" ? "Business Address"
@@ -229,28 +229,6 @@ export default async function ClientDetailPage({ params }: Props) {
             </span>
             {client.address
               ? <span style={{ ...value, lineHeight: 1.5 }}>{client.address}</span>
-              : <span style={emptyValue}>—</span>}
-          </div>
-
-          <div style={{ ...cell, borderBottom: "none" }}>
-            <span style={label}>Payment Terms</span>
-            {client.paymentTerms
-              ? (
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "3px 9px",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: "var(--maroon-tint)",
-                    color: "var(--maroon)",
-                    width: "fit-content",
-                  }}
-                >
-                  {client.paymentTerms}
-                </span>
-              )
               : <span style={emptyValue}>—</span>}
           </div>
         </div>

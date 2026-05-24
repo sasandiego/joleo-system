@@ -235,7 +235,7 @@ const CLIENTS = [
     contactPerson: "Maria Santos",
     mobile: "0917-000-0001",
     email: null,
-    paymentTerms: "30 DAYS",
+
     notes: null,
   },
   {
@@ -259,7 +259,7 @@ const CLIENTS = [
     contactPerson: "Carlos Mendez",
     mobile: "0920-000-0004",
     email: null,
-    paymentTerms: "30 DAYS",
+
     notes: null,
   },
   {
@@ -476,6 +476,24 @@ async function main() {
       },
     });
   }
+
+  // ── PaymentConfig ─────────────────────────────────────────
+  console.log("  → PaymentConfig");
+  await prisma.paymentConfig.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      bank1Name: "EASTWEST BANK",
+      bank1Holder: "JOLEO TRANSPORT",
+      bank1Account: "200048853462",
+      bank2Name: "BDO UNIBANK",
+      bank2Holder: "JOLEO TRANSPORT",
+      bank2Account: "013208001304",
+      gcashHolder: "LEOVINA SALVADOR",
+      gcashNumber: "09178305652",
+    },
+  });
 
   console.log("✅ Seed complete.");
 }

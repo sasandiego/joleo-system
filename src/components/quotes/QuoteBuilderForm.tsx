@@ -68,6 +68,7 @@ export interface QuoteInitialValues {
   vatOption: VatOption;
   serviceDescription: string | null;
   notes: string | null;
+  paymentTerms: string | null;
   scheduledDate: string | null; // YYYY-MM-DD
   scheduledStartTime: string | null; // HH:MM
 }
@@ -241,6 +242,8 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
   const [dropoffPoint, setDropoffPoint] = useState(initial?.dropoffPoint ?? "");
   const [serviceDescription, setServiceDescription] = useState(initial?.serviceDescription ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const DEFAULT_PAYMENT_TERMS = "20% downpayment required to confirm booking (non-refundable, non-cancellable but re-bookable). Accepted payment methods: Cash, Bank Transfer, GCash Send Money.";
+  const [paymentTerms, setPaymentTerms] = useState(initial?.paymentTerms ?? DEFAULT_PAYMENT_TERMS);
   const [scheduledDate, setScheduledDate] = useState(initial?.scheduledDate ?? "");
   const [scheduledStartTime, setScheduledStartTime] = useState(initial?.scheduledStartTime ?? "");
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
@@ -608,6 +611,14 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                     const v = e.target.value;
                     setManualOverridePrice(v === "" ? "" : parseFloat(v) || 0);
                   }}
+                />
+              </FieldGroup>
+              <FieldGroup label="Payment Terms" hint="Appears on the client-facing PDF quotation." span2>
+                <textarea
+                  name="paymentTerms"
+                  style={{ ...inputStyle, resize: "vertical", minHeight: 64 }}
+                  value={paymentTerms}
+                  onChange={(e) => setPaymentTerms(e.target.value)}
                 />
               </FieldGroup>
             </div>

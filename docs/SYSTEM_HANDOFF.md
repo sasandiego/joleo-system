@@ -1,7 +1,7 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-23 — Bug fixes (quotes/bookings date display, Decimal serialization in trucks page) + booking UX (truck type visibility in assignment, quoted truck type in detail card, clickable booking IDs)
+2026-05-24 — Obsidian Trucking vault documented + Joleo Transport 6-month marketing plan finalized (no code changes)
 
 ## Current System State
 Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green. All Phase 1 milestones (M1–M10) + 6-phase pricing engine refactor + Phase 1.5 (Clients & AI) complete, all on `main`. Full feature set: auth, masterlists CRUD, pricing config, pricing engine (bottom-up), quote builder + editor + PDF with AI generation, bookings with FSM + convert-from-quote, truck availability calendar, live dashboard, sidebar Logout. Login with `vyela` / `admin`, `gina` / `admin`, or `shem` / `admin`.
@@ -36,6 +36,8 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `(admin)/bookings/[id]/page.tsx` — booking detail with assignment form + status transitions
 - `(admin)/calendar/page.tsx` — week grid; `?week=YYYY-MM-DD` param; loads trucks + bookings for week
 - `(admin)/dashboard/page.tsx` — live stats + today's schedule + Fleet Status card + Recent Quotes card + 2-col split layout
+- `(admin)/payment-config/page.tsx` — Payment Details config (singleton PaymentConfig; bank × 2 + GCash)
+- `api/quotes/[id]/pdf/route.tsx` — fetches PaymentConfig + passes to QuotationPDF
 
 ### Top-level app files (`src/app/`)
 - `icon.png` — 32×32 favicon (generated from `docs/356378784_*.jpg` via sharp + trim)
@@ -53,7 +55,8 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `quotes/QuoteListClient.tsx` — quotes table with status badges
 - `quotes/QuoteBuilderForm.tsx` — client component: billing type toggle, auto long-distance hint, manual override price, service-flag dropdowns with inline ₱ amounts
 - `quotes/PriceBreakdownPanel.tsx` — new shape: base components → revenue allocations → revenue/VAT/toll → final (override row when applicable)
-- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document; 4-line pricing summary; uses effectiveVatAmount/effectiveRevenueNetOfVat; billing type in inclusions
+- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document; Payment Terms + Payment Details (bank/GCash) + Conforme; tightened spacing for single-page guarantee
+- `payment-config/PaymentConfigForm.tsx` — editable form, 3 method cards (Bank 1, Bank 2, GCash)
 - `bookings/BookingListClient.tsx` — filterable bookings table (search, status, date)
 - `bookings/BookingDetailClient.tsx` — assignment form + FSM status transitions + billing type display
 - `bookings/NewBookingForm.tsx` — standalone booking creation with billing type dropdown
@@ -66,6 +69,7 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `pricing-config.ts` — updatePricingConfigAction (AuditLog with before/after), resetToDefaultsAction
 - `quotes.ts` — saveQuoteAction (QT number gen, computePrice, Quote creation), updateQuoteAction (QUOTE_UPDATED audit log), convertToBookingAction
 - `bookings.ts` — transitionBookingAction (FSM + conflict check + audit), updateBookingAssignmentAction, createBookingAction
+- `payment-config.ts` — updatePaymentConfigAction (upsert PaymentConfig singleton)
 
 ### Features
 - `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma)
@@ -103,7 +107,7 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `markup_total = driverRate + helperRate + overheadRate [+ longDistanceRate if triggered]`
 - Replaces the old cost+margin model; avoids double-counting
 - Fuel: `MAX(fuelFloor, distance × 2 / efficiency × diesel_price)` — floor is a global setting
-- Toll is added AFTER markup — true pass-through, no VAT applied to it
+- Toll is included in base costs — same markup + VAT treatment as all other costs: `base_costs = fuel + tripBase + distance + other + toll` (finalized 2026-05-23)
 - Manual override back-computes `effectiveVatAmount` and `effectiveRevenueNetOfVat` for BIR compliance
 - Markup total ≥ 100% is a hard validation error (would cause division by zero)
 
@@ -241,6 +245,72 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - Radix v1+ requires either a `<Dialog.Description>` child or explicit opt-out via `aria-describedby={undefined}` on `<Dialog.Content>`. Otherwise prints a console warning.
 - Applied to all 5 dialogs: Client, Driver, Helper, Route Area, Reset Password.
 
+### Decision: paymentTerms moved from Client → Quote (2026-05-23, Vyela)
+- `Client.paymentTerms` removed; `Quote.paymentTerms` added (Text, nullable)
+- Default pre-fill in Quote Builder Section C: "20% downpayment required to confirm booking (non-refundable, non-cancellable but re-bookable). Accepted payment methods: Cash, Bank Transfer, GCash Send Money."
+- Admin can edit freely per quote; rendered as "Payment Terms" section in PDF
+- Migration: `20260523000000_quote_payment_terms`; 12+ files updated
+
+### Decision: PaymentConfig singleton for bank/GCash details on PDF (2026-05-23, Vyela)
+- New model `PaymentConfig` (id=1 singleton): bank1, bank2, GCash fields
+- Seeded: EastWest Bank 200048853462 / BDO Unibank 013208001304 / GCash Leovina Salvador 09178305652
+- Admin page `/payment-config` (sidebar: Configuration → Payment Details)
+- PDF fetches live on each download — changes apply immediately to new PDFs
+- Rendered as 3-column shaded cards in "Payment Details" section
+
+### Decision: PDF Conforme section (2026-05-23, Vyela)
+- Standard PH conforme block at PDF bottom: acknowledgment note + 3 signature lines (Signature/Printed Name · Position/Title · Date)
+- PDF spacing tightened throughout (paddingTop 32→24, section margins, row padding) to maintain single-page layout
+
+### Decision: Calendar Quoted status color + truck sort order (2026-05-23)
+- QUOTED gets amber (#B8801C) — was sharing white/dashed style with DRAFT (invisible on calendar)
+- Trucks sorted by best booking status this week: DISPATCHED→CONFIRMED→QUOTED→DRAFT→unbooked; ties by code
+
+### Decision: Calendar truck rows sorted by booking status priority (2026-05-23)
+- `sortedTrucks` derived in `TruckCalendar.tsx`; rank: DISPATCHED=0, CONFIRMED=1, QUOTED/DRAFT=2, unbooked=3
+- Ties fall back to truck code alphabetical
+- Solves the "scroll to bottom to find active bookings" UX problem
+
+### Decision: Quoted status has distinct amber color in calendar (2026-05-23)
+- QUOTED: `bg var(--warning) #B8801C`, white text, solid border — distinct from CONFIRMED (maroon) and DISPATCHED (ink)
+- Previously QUOTED shared the white/dashed style with DRAFT — invisible when active quotes appeared on the calendar
+- `isDashed` now only applies to DRAFT (QUOTED is solid — it has a committed quote behind it)
+- Legend updated and reordered: Dispatched → Confirmed → Quoted → Draft → Unavailable (priority order)
+
+### Decision: Toll fee in base costs (2026-05-23, finalized)
+- Iterated through 3 approaches this session:
+  1. Post-VAT pass-through (original) — no markup, no VAT on toll
+  2. Added to VAT base — no markup, but VAT applied on toll
+  3. **Base costs (final, per Shem)** — toll treated identically to all other costs
+- Final formula: `base_costs = fuel + tripBase + distance + other + toll`; `revenue = base_costs / (1 - markup)`; `finalPrice = revenue + (revenue × vatRate)`
+- Override back-compute simplifies completely: `effectiveRevenue = override / (1 + vatRate)` — no toll subtraction needed
+- UI label: "Toll" (no "pass-through" language) in PriceBreakdownPanel, quote detail page, PDF
+- `result.tollFee` still returned in PricingResult as the raw input amount (for display reference)
+- 30/30 tests updated and passing; all pushed to origin/main
+
+### Decision: Booking assignment form — `onSubmit` + manual FormData (2026-05-23)
+- Root cause: `<form action={serverAction}>` calls native `form.reset()` after completion; React 19 reconciliation then reverts controlled selects to their last server-rendered value
+- Definitive fix: `<form onSubmit={handleAssignSubmit}>` where `handleAssignSubmit` calls `e.preventDefault()`, builds FormData from React state directly, calls server action via `startTransition`
+- This is immune to all form reset behavior — state is authoritative, DOM is never reset by the form lifecycle
+- `useActionState` kept only for status transition buttons; assignment form uses `useState + useTransition`
+
+### Decision: Driver conflict detection mirrors truck conflict (2026-05-23)
+- `checkDriverConflict(driverId, date, excludeBookingId?)` in `src/actions/bookings.ts`
+- Same pattern as `checkTruckConflict`: queries bookings by driverId + date, excludes current booking ID
+- Wired into: `transitionBookingAction` (on CONFIRMED), `updateBookingAssignmentAction`, `createBookingAction`
+- Error message: `"Driver ${fullName} is already assigned to booking ${bookingNo} on ${dateStr}"`
+
+### Decision: Price recomputation history via AuditLog (2026-05-23)
+- When `updateBookingAssignmentAction` saves a `recomputedAmount`, it writes `action: "BOOKING_PRICE_UPDATED"` to AuditLog
+- `before`: `{ quotedAmount: old, truckType: oldLabel }` — `after`: `{ quotedAmount: new, truckType: newLabel, username }`
+- Username stored in JSON payload (not a Prisma relation — AuditLog has no `user` FK)
+- Booking detail page fetches history (`db.auditLog.findMany({ action: "BOOKING_PRICE_UPDATED" })`), renders as Price History card (descending, Asia/Manila timestamps)
+
+### Decision: Booking End Time auto-computed from estimatedHours (2026-05-23)
+- `handleStartTimeChange` in BookingDetailClient: if `booking.estimatedHours` is set and input is a valid HH:MM, adds hours to start time and fills End Time field
+- Pure client-side arithmetic — no round-trip; user can still manually override End Time after
+- End Time is stored as a plain HH:MM string in `scheduledEndTime`; no timezone conversion
+
 ### Decision: Quotes list Date & Time column shows scheduled date, not createdAt (2026-05-23)
 - `quotes/page.tsx` serializes `scheduledDate` and `scheduledStartTime` alongside `createdAt`
 - `QuoteListClient` renders scheduled date + time; falls back to `createdAt` for pre-Phase-1.5 quotes that have no `scheduledDate`
@@ -288,13 +358,15 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 
 ---
 
-## Session Continuity (2026-05-23)
-- Last worked on: Bug fixes + UX polish — quotes list date display (was showing `createdAt` instead of `scheduledDate`), bookings list clickable IDs and time display, booking detail truck type visibility (quoted type in info card, type labels in dropdown, mismatch warning), Decimal serialization fix in `trucks/page.tsx`.
-- **Immediate next step (when Shem returns):** Live browser test the full flow — create client (all three types) → create quote with AI-generated description → convert to booking → assign truck (verify quoted type shows and mismatch warning works) → download PDF. Plus the multi-user Vyela/Gina walkthrough on `https://joleo.sas-agent.co.uk`.
+## Session Continuity (2026-05-24)
+- Last worked on: Non-code session — Obsidian Trucking vault fully updated (`Project-Trucking.md`, `Context-Trucking.md`); Joleo Transport 6-month marketing plan finalized from Vyela's PPTX strategy deck and saved to `/home/agent/vault/04 Projects/Trucking/notes/Marketing-Plan.md`.
+- **Immediate next step (marketing):** Start Week 1 quick wins — Anica: TikTok setup + Facebook page refresh; Shem: list 50 target manufacturers in Caloocan/Valenzuela/Bulacan corridor; Gina: verify PaymentConfig is correct in admin portal (bank accounts + GCash).
+- **Immediate next step (system):** Live browser test on `joleo.sas-agent.co.uk` — download a PDF from an existing quote to verify Conforme + Payment Terms + Payment Details render correctly on one page. (Carried over from 2026-05-23 — not yet done.)
+- **Pending decision:** Mobile responsiveness — Shem/Vyela thinking it over. Scope: ~25 files, 3–4 sessions. Complex forms = Quote Builder + Booking Detail; everything else straightforward.
 - **Open items:**
   - `docs/Joleo_Update_Guide.md` worked-example ₱ figure still outdated; correct value is ₱5,932.14.
-  - Walk-in `walkInName` column still on Quote/Booking from earlier walk-in removal — unused but harmless.
-  - Italic Service Description on PDF is a minor downgrade; can re-add by registering `DejaVuSans-Oblique.ttf`.
+  - Walk-in `walkInName` column still on Quote/Booking — unused but harmless.
+  - Italic Service Description on PDF — can re-add by registering `DejaVuSans-Oblique.ttf` in `public/fonts/`.
 - **Not blocked:** TSC clean, 30/30 tests pass, dev server healthy on `localhost:3000`.
 - Do NOT touch:
   - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox
