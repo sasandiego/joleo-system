@@ -12,10 +12,10 @@ export interface PricingInput {
   tripBillingType: BillingType;
 
   // Crew + flags
+  numberOfHelpers: number; // min 1. Drives the helper allocation: helperRate × numberOfHelpers.
   numberOfDropoffs: number; // default 1
-  condoService: boolean;
+  difficultAccess: boolean; // stairs, elevator wait, parking restrictions, non-ground floor delivery
   cateringService: boolean;
-  additionalHelper: boolean;
 
   // Pass-through + overrides
   tollFee: number; // included in VAT base: vatBase = revenueAfterDiscount + tollFee
@@ -48,13 +48,12 @@ export interface RateSettingsForPricing {
   fuelEfficiencyKmpl: { toNumber(): number };
 
   // Add-on rates
-  additionalHelperRate: { toNumber(): number };
   additionalHourRate: { toNumber(): number };
   additionalDropoffCharge: { toNumber(): number };
   standardIncludedHours: number;
 
   // Special service fees
-  condoHandlingFee: { toNumber(): number };
+  difficultAccessFee: { toNumber(): number };
   cateringHandlingFee: { toNumber(): number };
   loadingUnloadingFee: { toNumber(): number };
 
@@ -71,10 +70,9 @@ export interface PricingContext {
 }
 
 export interface OtherDirectCosts {
-  condoFee: number;
+  difficultAccessFee: number;
   cateringFee: number;
   loadingUnloadingFee: number;
-  additionalHelperFee: number;
   excessHoursFee: number;
   extraDropoffsFee: number;
   subtotal: number;
@@ -139,10 +137,9 @@ export interface PricingResult {
     dieselPricePerLiter: number;
     distanceRatePerKm: number;
     additionalHourRate: number;
-    additionalHelperRate: number;
     additionalDropoffCharge: number;
     standardIncludedHours: number;
-    condoHandlingFee: number;
+    difficultAccessFee: number;
     cateringHandlingFee: number;
     loadingUnloadingFee: number;
     vatRate: number;

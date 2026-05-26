@@ -1,7 +1,7 @@
 # BUILD_PROGRESS
 
 ## System Health
-Last updated: 2026-05-24 (no code changes — docs + planning session; system unchanged)
+Last updated: 2026-05-26 — Per-helper markup refactor + FIX-008→012 + silent-₱0 guard + JWT FK mapping. TSC clean, 36/36 tests pass.
 
 ## ✅ Stable — Do Not Touch
 ### M1 — Foundation
@@ -228,6 +228,54 @@ Last updated: 2026-05-24 (no code changes — docs + planning session; system un
 - Calendar: truck rows sorted by booking status priority; Quoted status amber color (#B8801C); legend reordered
 - `.dockerignore` created; dev server restarted (2.5GB→352MB RAM)
 
+### 2026-05-26 — Per-helper markup + FIX-008→012 + reliability ⭐
+**Per-helper markup refactor (Gina's rule)**
+- Pricing engine now scales helper allocation by `numberOfHelpers`: `markup = driverRate + (helperRate × numHelpers) + overheadRate [+ longDistanceRate]`. 1 helper = 27.5% (same baseline as before), 2 helpers = 35%, 3 = 42.5%.
+- Engine validates `numberOfHelpers ≥ 1` (integer). Throws `PricingValidationError` for 0/negative/non-integer.
+- Dropped: `Quote.additionalHelper` boolean, `RateSettings.additionalHelperRate` ₱750 surcharge, "Additional Helper?" select in QuoteBuilderForm, "Additional Helper" input in PricingConfigForm, breakdown panel row, PDF inclusion line.
+- Threaded `numberOfHelpers` through both engine call sites (`saveQuoteAction`, `updateQuoteAction`) and `BookingDetailClient` recompute.
+- Migration: `20260526010000_drop_additional_helper`.
+- Tests 36/36: added per-helper scaling (1/2/3), ≥1 validation, non-integer rejection. Rewrote 40km acceptance scenario (2 helpers + difficult access + 14ft truck): new expected ₱14,970.67 (was ₱14,551.70 under flag model).
+
+**FIX-008/009/010/011/012 (Vyela's pricing feedback)**
+- FIX-008 (drop-off charge): engine already computed `extraDropoffsFee`; relabelled UI row "Extra drop-offs" → "Drop-off Charge".
+- FIX-009 (condo→difficult access): full rename across schema, engine, types, actions, all UI, PDF. Migration `20260526000000_rename_condo_to_difficult_access`. Helper text: "Applies when access requires extra effort (stairs, elevator wait, parking restrictions, non-ground floor delivery)."
+- FIX-010 (helper rate): 600 → 750 in seed + reset-defaults action (later removed entirely by per-helper refactor).
+- FIX-011 (number-input clearing bug): refactored ~6 inputs in QuoteBuilderForm and ~15 in PricingConfigForm from `useState<number>` + clamp-on-change to `useState<string>` + parse-on-use. Added `SettingsDraft`/`TruckTypeRateDraft` types so the form holds strings while submission still serializes numbers.
+- FIX-012 (distance + threshold): `distanceRatePerKm` 12 → 30; `longDistanceThresholdKm` 50 → 40. Seed + reset-defaults action + live DB.
+- Cleaned 4 existing quotes + 4 bookings before the rename to avoid backwards-compat work on stored `pricingSnapshot` JSON.
+
+**Code review found 15 findings; fixed the top high-severity ones**
+- Silent ₱0-save guard: added `num()` zod preprocessor in `actions/pricing-config.ts` that maps empty/whitespace strings to `undefined` (which then fails coercion with "is required"). Without it, `z.coerce.number().nonnegative().safeParse('')` returned `{ success: true, data: 0 }` — clearing any rate field silently wrote 0.
+- Truck base rates tightened from `.nonnegative()` to `.positive()` — a ₱0 base rate is always a misconfiguration.
+- Client `emptyFields` memo in PricingConfigForm lists every cleared field (or zero truck-base-rate) by user-facing label. `canSave = isDirty && markupOk && !hasEmpty`. Save button disabled with explanatory tooltip; yellow warning banner above the form lists which fields to fix.
+- Banner component extended with `warning` palette (amber).
+- Action error reporter prefixes the field name (e.g. `dieselPricePerLiter: is required (cannot be empty)`).
+
+**JWT FK error mapping (Vyela couldn't save quote)**
+- Root cause: her browser's NextAuth JWT cookie held a `user.id` from before a past User-table reseed. The fresh `vyela` row exists with a different id, so `db.quote.create({ createdById: session.user.id })` threw P2003.
+- Fix: `mapDbError()` helper in `src/actions/quotes.ts` catches `P2003` on `createdById` and returns "Your sign-in session is no longer valid (the user account it refers to is missing). Please log out and log back in, then retry." Other P2003s include the field name. All other errors get a generic message + `console.error(actualError)` for diagnosis. Applied to both `saveQuoteAction` and `updateQuoteAction`, replacing the prior silent `catch { return { error: "Failed to save quote." } }`.
+
+**Payment Terms read-only**
+- Was a freely-editable textarea in QuoteBuilderForm. Vyela: "should just be uneditable."
+- Now renders as a tinted read-only block showing the PDF text. Hidden `<input name="paymentTerms" />` preserves submission. State setter removed (now a const).
+
+**Cleanups**
+- One-shot scripts in `scripts/` (`wipe-quotes-bookings.ts`, `rename-columns.ts`, `apply-new-defaults.ts`, `apply-drop-cols.ts`) executed then deleted.
+- Dev server restarted, healthy at 181 MB RSS.
+
+### 2026-05-24 — Send Email to Client + CompanyProfile + PDF contact details ⭐
+- `CompanyProfile` singleton model (id=1): phone, mobile, email, address — 2 migrations applied
+- `PaymentConfig` gains `companyProfileId Int @unique` FK (1:1 with CompanyProfile)
+- `/company-profile` admin page (sidebar: Configuration → Company Profile); `updateCompanyProfileAction`
+- `src/lib/generate-pdf.tsx` — shared `generateQuotePdf(quoteId): Promise<Buffer>`; PDF download route now a thin wrapper
+- `sendQuoteEmailAction` in `src/actions/email.ts`: guards booking CONFIRMED/DISPATCHED/COMPLETED + client email; generates PDF via shared utility; sends via Resend (`noreply@sas-agent.co.uk`); email body has quote summary + payment details + CompanyProfile contact footer
+- `SendEmailButton` component: AlertDialog confirmation + inline success/error; always visible on quote detail; disabled when unconfirmed or client has no email
+- Quote detail page: `client.email` + `booking.status` added to query; `canSendEmail` logic; button in header (between Convert and Download PDF)
+- `src/actions/payment-config.ts` fixed: `companyProfileId: 1` in upsert create fallback
+- PDF footer: left = `phone · mobile · email`; right = `address` — both from CompanyProfile (live, not static)
+- TSC clean, 30/30 tests pass
+
 ## 🧪 Experimental (treat as fragile)
 _(none)_
 
@@ -252,3 +300,5 @@ _(none)_
 | — | Pricing Engine Refactor (6-phase) | ✅ Complete |
 | — | Phase 1.5 — Clients & AI | ✅ Complete |
 | — | PDF Upgrades + PaymentConfig (Vyela) | ✅ Complete |
+| — | Send Email to Client + CompanyProfile | ✅ Complete |
+| — | FIX-008→012 + Per-Helper Markup + Reliability | ✅ Complete |

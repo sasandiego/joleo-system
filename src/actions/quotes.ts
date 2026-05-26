@@ -20,11 +20,10 @@ const quoteSchema = z.object({
   estimatedHours: z.coerce.number().int().min(1),
   numberOfDropoffs: z.coerce.number().int().min(1).default(1),
   truckTypeId: z.string().min(1, "Truck type is required"),
-  numberOfHelpers: z.coerce.number().int().min(0),
+  numberOfHelpers: z.coerce.number().int().min(1, "At least 1 helper is required"),
   tripBillingType: z.enum(["EIGHT_HOUR", "PER_TRIP"]),
-  condoService: z.coerce.boolean().default(false),
+  difficultAccess: z.coerce.boolean().default(false),
   cateringService: z.coerce.boolean().default(false),
-  additionalHelper: z.coerce.boolean().default(false),
   tollFee: z.coerce.number().min(0).default(0),
   fuelPriceOverride: z.coerce.number().min(0).optional(),
   discountAmount: z.coerce.number().min(0).default(0),
@@ -78,9 +77,8 @@ export async function saveQuoteAction(
   const raw = Object.fromEntries(formData.entries());
   const parsed = quoteSchema.safeParse({
     ...raw,
-    condoService: coerceBool(raw.condoService),
+    difficultAccess: coerceBool(raw.difficultAccess),
     cateringService: coerceBool(raw.cateringService),
-    additionalHelper: coerceBool(raw.additionalHelper),
     convertToBooking: coerceBool(raw.convertToBooking),
     fuelPriceOverride: emptyToUndefined(raw.fuelPriceOverride),
     manualOverridePrice: emptyToUndefined(raw.manualOverridePrice),
@@ -109,10 +107,10 @@ export async function saveQuoteAction(
         estimatedDistanceKm: data.estimatedDistanceKm,
         estimatedJobHours: data.estimatedHours,
         tripBillingType: data.tripBillingType,
+        numberOfHelpers: data.numberOfHelpers,
         numberOfDropoffs: data.numberOfDropoffs,
-        condoService: data.condoService,
+        difficultAccess: data.difficultAccess,
         cateringService: data.cateringService,
-        additionalHelper: data.additionalHelper,
         tollFee: data.tollFee,
         fuelPriceOverride: data.fuelPriceOverride,
         discountAmount: data.discountAmount,
@@ -144,9 +142,8 @@ export async function saveQuoteAction(
         truckTypeId: data.truckTypeId,
         numberOfHelpers: data.numberOfHelpers,
         tripBillingType: data.tripBillingType,
-        condoService: data.condoService,
+        difficultAccess: data.difficultAccess,
         cateringService: data.cateringService,
-        additionalHelper: data.additionalHelper,
         tollFee: new Decimal(data.tollFee),
         fuelPriceOverride: data.fuelPriceOverride ? new Decimal(data.fuelPriceOverride) : null,
         discountAmount: new Decimal(data.discountAmount),
@@ -184,12 +181,32 @@ export async function saveQuoteAction(
         },
       });
     }
-  } catch {
-    return { error: "Failed to save quote." };
+  } catch (e) {
+    return mapDbError(e, "save quote");
   }
 
   revalidatePath("/quotes");
   redirect(`/quotes/${quoteId}`);
+}
+
+// Translate a Prisma error into a user-facing message, logging the raw error.
+// P2003 = FK constraint violation; createdById FK violation almost always means
+// the user's JWT references a stale user.id (e.g. after a reseed).
+function mapDbError(e: unknown, op: string): { error: string } {
+  const err = e as { code?: string; meta?: { field_name?: string } };
+  if (err.code === "P2003") {
+    const field = err.meta?.field_name ?? "";
+    console.error(`P2003 on ${op}:`, err.meta);
+    if (field.includes("createdById")) {
+      return {
+        error:
+          "Your sign-in session is no longer valid (the user account it refers to is missing). Please log out and log back in, then retry.",
+      };
+    }
+    return { error: `Reference missing on ${op}: ${field || "unknown FK"}.` };
+  }
+  console.error(`Failed to ${op}:`, e);
+  return { error: `Failed to ${op}. Please retry; if this persists, contact admin.` };
 }
 
 export async function updateQuoteAction(
@@ -202,9 +219,8 @@ export async function updateQuoteAction(
   const raw = Object.fromEntries(formData.entries());
   const parsed = updateSchema.safeParse({
     ...raw,
-    condoService: coerceBool(raw.condoService),
+    difficultAccess: coerceBool(raw.difficultAccess),
     cateringService: coerceBool(raw.cateringService),
-    additionalHelper: coerceBool(raw.additionalHelper),
     convertToBooking: false, // not supported on edit
     fuelPriceOverride: emptyToUndefined(raw.fuelPriceOverride),
     manualOverridePrice: emptyToUndefined(raw.manualOverridePrice),
@@ -235,10 +251,10 @@ export async function updateQuoteAction(
         estimatedDistanceKm: data.estimatedDistanceKm,
         estimatedJobHours: data.estimatedHours,
         tripBillingType: data.tripBillingType,
+        numberOfHelpers: data.numberOfHelpers,
         numberOfDropoffs: data.numberOfDropoffs,
-        condoService: data.condoService,
+        difficultAccess: data.difficultAccess,
         cateringService: data.cateringService,
-        additionalHelper: data.additionalHelper,
         tollFee: data.tollFee,
         fuelPriceOverride: data.fuelPriceOverride,
         discountAmount: data.discountAmount,
@@ -266,9 +282,8 @@ export async function updateQuoteAction(
         truckTypeId: data.truckTypeId,
         numberOfHelpers: data.numberOfHelpers,
         tripBillingType: data.tripBillingType,
-        condoService: data.condoService,
+        difficultAccess: data.difficultAccess,
         cateringService: data.cateringService,
-        additionalHelper: data.additionalHelper,
         tollFee: new Decimal(data.tollFee),
         fuelPriceOverride: data.fuelPriceOverride ? new Decimal(data.fuelPriceOverride) : null,
         discountAmount: new Decimal(data.discountAmount),
@@ -315,8 +330,8 @@ export async function updateQuoteAction(
         },
       },
     });
-  } catch {
-    return { error: "Failed to update quote." };
+  } catch (e) {
+    return mapDbError(e, "update quote");
   }
 
   revalidatePath(`/quotes/${data.id}`);

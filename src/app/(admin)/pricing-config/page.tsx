@@ -28,12 +28,11 @@ export default async function PricingConfigPage() {
     fuelFloor: raw.fuelFloor.toNumber(),
     fuelEfficiencyKmpl: raw.fuelEfficiencyKmpl.toNumber(),
     // Add-ons
-    additionalHelperRate: raw.additionalHelperRate.toNumber(),
     additionalHourRate: raw.additionalHourRate.toNumber(),
     additionalDropoffCharge: raw.additionalDropoffCharge.toNumber(),
     standardIncludedHours: raw.standardIncludedHours,
     // Service fees
-    condoHandlingFee: raw.condoHandlingFee.toNumber(),
+    difficultAccessFee: raw.difficultAccessFee.toNumber(),
     cateringHandlingFee: raw.cateringHandlingFee.toNumber(),
     loadingUnloadingFee: raw.loadingUnloadingFee.toNumber(),
     // Distance

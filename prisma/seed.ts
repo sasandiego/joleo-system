@@ -284,7 +284,7 @@ const RATE_SETTINGS = {
   // Overhead & surcharges
   overheadRate: 0.05,
   longDistanceRate: 0.05,
-  longDistanceThresholdKm: 50,
+  longDistanceThresholdKm: 40,
 
   // Fuel config
   dieselPricePerLiter: 70.0,
@@ -292,18 +292,17 @@ const RATE_SETTINGS = {
   fuelEfficiencyKmpl: 5.0,
 
   // Add-on rates (added to direct costs when triggered)
-  additionalHelperRate: 600,
   additionalHourRate: 350,
   additionalDropoffCharge: 300,
   standardIncludedHours: 8,
 
   // Special service fees
-  condoHandlingFee: 500,
+  difficultAccessFee: 500,
   cateringHandlingFee: 400,
   loadingUnloadingFee: 0,
 
   // Distance
-  distanceRatePerKm: 12,
+  distanceRatePerKm: 30,
 
   // Tax (locked by BIR)
   vatRate: 0.12,

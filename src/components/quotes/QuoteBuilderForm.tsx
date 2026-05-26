@@ -35,11 +35,10 @@ interface Settings {
   dieselPricePerLiter: number;
   fuelFloor: number;
   fuelEfficiencyKmpl: number;
-  additionalHelperRate: number;
   additionalHourRate: number;
   additionalDropoffCharge: number;
   standardIncludedHours: number;
-  condoHandlingFee: number;
+  difficultAccessFee: number;
   cateringHandlingFee: number;
   loadingUnloadingFee: number;
   distanceRatePerKm: number;
@@ -59,9 +58,8 @@ export interface QuoteInitialValues {
   estimatedHours: number;
   numberOfDropoffs: number;
   tripBillingType: BillingType;
-  condoService: boolean;
+  difficultAccess: boolean;
   cateringService: boolean;
-  additionalHelper: boolean;
   tollFee: number;
   discountAmount: number;
   manualOverridePrice: number | null;
@@ -100,11 +98,10 @@ function buildContext(settings: Settings, truckType: TruckType) {
       dieselPricePerLiter: w(settings.dieselPricePerLiter),
       fuelFloor: w(settings.fuelFloor),
       fuelEfficiencyKmpl: w(settings.fuelEfficiencyKmpl),
-      additionalHelperRate: w(settings.additionalHelperRate),
       additionalHourRate: w(settings.additionalHourRate),
       additionalDropoffCharge: w(settings.additionalDropoffCharge),
       standardIncludedHours: settings.standardIncludedHours,
-      condoHandlingFee: w(settings.condoHandlingFee),
+      difficultAccessFee: w(settings.difficultAccessFee),
       cateringHandlingFee: w(settings.cateringHandlingFee),
       loadingUnloadingFee: w(settings.loadingUnloadingFee),
       distanceRatePerKm: w(settings.distanceRatePerKm),
@@ -243,28 +240,38 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
   const [serviceDescription, setServiceDescription] = useState(initial?.serviceDescription ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const DEFAULT_PAYMENT_TERMS = "20% downpayment required to confirm booking (non-refundable, non-cancellable but re-bookable). Accepted payment methods: Cash, Bank Transfer, GCash Send Money.";
-  const [paymentTerms, setPaymentTerms] = useState(initial?.paymentTerms ?? DEFAULT_PAYMENT_TERMS);
+  const paymentTerms = initial?.paymentTerms ?? DEFAULT_PAYMENT_TERMS;
   const [scheduledDate, setScheduledDate] = useState(initial?.scheduledDate ?? "");
   const [scheduledStartTime, setScheduledStartTime] = useState(initial?.scheduledStartTime ?? "");
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [truckTypeId, setTruckTypeId] = useState(initial?.truckTypeId ?? defaultTruckType?.id ?? "");
   const [tripBillingType, setTripBillingType] = useState<BillingType>(initial?.tripBillingType ?? "EIGHT_HOUR");
-  const [distanceKm, setDistanceKm] = useState(initial?.estimatedDistanceKm ?? 30);
-  const [jobHours, setJobHours] = useState(initial?.estimatedHours ?? settings.standardIncludedHours);
-  const [numHelpers, setNumHelpers] = useState(initial?.numberOfHelpers ?? 1);
-  const [numDropoffs, setNumDropoffs] = useState(initial?.numberOfDropoffs ?? 1);
-  const [tollFee, setTollFee] = useState(initial?.tollFee ?? 0);
-  const [discountAmount, setDiscountAmount] = useState(initial?.discountAmount ?? 0);
-  const [manualOverridePrice, setManualOverridePrice] = useState<number | "">(
-    initial?.manualOverridePrice ?? "",
+  // Number-input fields are stored as strings so users can clear them mid-edit.
+  // Parse-on-use when computing the live preview (empty / NaN → 0 fallback).
+  const [distanceKm, setDistanceKm] = useState<string>(String(initial?.estimatedDistanceKm ?? 30));
+  const [jobHours, setJobHours] = useState<string>(String(initial?.estimatedHours ?? settings.standardIncludedHours));
+  const [numHelpers, setNumHelpers] = useState<string>(String(initial?.numberOfHelpers ?? 1));
+  const [numDropoffs, setNumDropoffs] = useState<string>(String(initial?.numberOfDropoffs ?? 1));
+  const [tollFee, setTollFee] = useState<string>(String(initial?.tollFee ?? 0));
+  const [discountAmount, setDiscountAmount] = useState<string>(String(initial?.discountAmount ?? 0));
+  const [manualOverridePrice, setManualOverridePrice] = useState<string>(
+    initial?.manualOverridePrice != null ? String(initial.manualOverridePrice) : "",
   );
-  const [condoService, setCondoService] = useState(initial?.condoService ?? false);
+
+  // Parse helpers — used by live preview only. Hidden inputs serialize the raw string.
+  const distanceKmNum = parseFloat(distanceKm) || 0;
+  const jobHoursNum = parseFloat(jobHours) || 0;
+  const numHelpersNum = parseInt(numHelpers, 10) || 0;
+  const numDropoffsNum = parseInt(numDropoffs, 10) || 1;
+  const tollFeeNum = parseFloat(tollFee) || 0;
+  const discountAmountNum = parseFloat(discountAmount) || 0;
+  const manualOverridePriceNum = manualOverridePrice.trim() === "" ? undefined : parseFloat(manualOverridePrice);
+  const [difficultAccess, setDifficultAccess] = useState(initial?.difficultAccess ?? false);
   const [cateringService, setCateringService] = useState(initial?.cateringService ?? false);
-  const [additionalHelper, setAdditionalHelper] = useState(initial?.additionalHelper ?? false);
   const [vatOption, setVatOption] = useState<VatOption>(initial?.vatOption ?? "VAT_INCLUSIVE");
 
   const selectedTruckType = truckTypes.find((t) => t.id === truckTypeId) ?? defaultTruckType;
-  const isLongDistance = distanceKm >= settings.longDistanceThresholdKm;
+  const isLongDistance = distanceKmNum >= settings.longDistanceThresholdKm;
 
   async function handleGenerateDescription() {
     setIsGeneratingDesc(true);
@@ -273,7 +280,7 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
       pickupPoint,
       dropoffPoint,
       truckType: selectedTruckType?.label ?? truckTypeId,
-      numberOfHelpers: numHelpers,
+      numberOfHelpers: numHelpersNum,
       billingType: tripBillingType,
       notes: notes.trim() || undefined,
     });
@@ -283,19 +290,20 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
 
   const pricingResult = useMemo<PricingResult | null>(() => {
     if (!selectedTruckType) return null;
+    if (distanceKmNum <= 0) return null;
     try {
       return computePrice(
         {
-          estimatedDistanceKm: distanceKm,
-          estimatedJobHours: jobHours,
+          estimatedDistanceKm: distanceKmNum,
+          estimatedJobHours: jobHoursNum,
           tripBillingType,
-          numberOfDropoffs: numDropoffs,
-          condoService,
+          numberOfHelpers: numHelpersNum < 1 ? 1 : numHelpersNum,
+          numberOfDropoffs: numDropoffsNum,
+          difficultAccess,
           cateringService,
-          additionalHelper,
-          tollFee,
-          discountAmount,
-          manualOverridePrice: manualOverridePrice === "" ? undefined : manualOverridePrice,
+          tollFee: tollFeeNum,
+          discountAmount: discountAmountNum,
+          manualOverridePrice: manualOverridePriceNum,
           vatOption,
         },
         buildContext(settings, selectedTruckType),
@@ -305,17 +313,16 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
     }
   }, [
     selectedTruckType,
-    distanceKm,
-    jobHours,
+    distanceKmNum,
+    jobHoursNum,
     tripBillingType,
-    numHelpers,
-    numDropoffs,
-    condoService,
+    numHelpersNum,
+    numDropoffsNum,
+    difficultAccess,
     cateringService,
-    additionalHelper,
-    tollFee,
-    discountAmount,
-    manualOverridePrice,
+    tollFeeNum,
+    discountAmountNum,
+    manualOverridePriceNum,
     vatOption,
     settings,
   ]);
@@ -372,10 +379,9 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
       <input type="hidden" name="numberOfDropoffs" value={numDropoffs} />
       <input type="hidden" name="tollFee" value={tollFee} />
       <input type="hidden" name="discountAmount" value={discountAmount} />
-      <input type="hidden" name="manualOverridePrice" value={String(manualOverridePrice)} />
-      <input type="hidden" name="condoService" value={String(condoService)} />
+      <input type="hidden" name="manualOverridePrice" value={manualOverridePrice} />
+      <input type="hidden" name="difficultAccess" value={String(difficultAccess)} />
       <input type="hidden" name="cateringService" value={String(cateringService)} />
-      <input type="hidden" name="additionalHelper" value={String(additionalHelper)} />
       <input type="hidden" name="vatOption" value={vatOption} />
       <input type="hidden" name="truckTypeId" value={truckTypeId} />
       <input type="hidden" name="tripBillingType" value={tripBillingType} />
@@ -441,7 +447,7 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   }}
                   value={distanceKm}
                   min={1}
-                  onChange={(e) => setDistanceKm(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setDistanceKm(e.target.value)}
                 />
               </FieldGroup>
               <FieldGroup label="Number of Drop-offs">
@@ -450,7 +456,7 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   style={inputStyle}
                   value={numDropoffs}
                   min={1}
-                  onChange={(e) => setNumDropoffs(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setNumDropoffs(e.target.value)}
                 />
               </FieldGroup>
               <FieldGroup label="Notes (Internal)" hint="Admin-only. Special client requests or operational reminders — won't appear on the PDF, but the AI Service Description generator on the right will summarize them." span2>
@@ -488,13 +494,13 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   ))}
                 </select>
               </FieldGroup>
-              <FieldGroup label="Number of Helpers" hint="Used for crew assignment; helper compensation is a revenue allocation.">
+              <FieldGroup label="Number of Helpers" hint={`Min 1. Each helper adds ${(settings.helperRate * 100).toFixed(1)}% to the markup (revenue net of VAT).`}>
                 <input
                   type="number"
                   style={inputStyle}
                   value={numHelpers}
-                  min={0}
-                  onChange={(e) => setNumHelpers(Math.max(0, parseInt(e.target.value) || 0))}
+                  min={1}
+                  onChange={(e) => setNumHelpers(e.target.value)}
                 />
               </FieldGroup>
             </div>
@@ -531,7 +537,7 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   value={jobHours}
                   min={1}
                   disabled={tripBillingType === "PER_TRIP"}
-                  onChange={(e) => setJobHours(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setJobHours(e.target.value)}
                 />
               </FieldGroup>
               <FieldGroup label="Toll Fee (₱)" hint="Pass-through — added to the final price, no markup or VAT.">
@@ -541,7 +547,7 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   value={tollFee}
                   min={0}
                   step="0.01"
-                  onChange={(e) => setTollFee(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setTollFee(e.target.value)}
                 />
               </FieldGroup>
               <FieldGroup label="VAT Option">
@@ -555,14 +561,14 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   <option value="NON_VAT">Non-VAT</option>
                 </select>
               </FieldGroup>
-              <FieldGroup label="Condo Service?">
+              <FieldGroup label="Difficult Access?" hint="Applies when access requires extra effort (stairs, elevator wait, parking restrictions, non-ground floor delivery).">
                 <select
                   style={selectStyle}
-                  value={condoService ? "true" : "false"}
-                  onChange={(e) => setCondoService(e.target.value === "true")}
+                  value={difficultAccess ? "true" : "false"}
+                  onChange={(e) => setDifficultAccess(e.target.value === "true")}
                 >
                   <option value="false">No</option>
-                  <option value="true">Yes (+₱{settings.condoHandlingFee})</option>
+                  <option value="true">Yes (+₱{settings.difficultAccessFee})</option>
                 </select>
               </FieldGroup>
               <FieldGroup label="Catering Service?">
@@ -575,16 +581,6 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   <option value="true">Yes (+₱{settings.cateringHandlingFee})</option>
                 </select>
               </FieldGroup>
-              <FieldGroup label="Additional Helper?">
-                <select
-                  style={selectStyle}
-                  value={additionalHelper ? "true" : "false"}
-                  onChange={(e) => setAdditionalHelper(e.target.value === "true")}
-                >
-                  <option value="false">No</option>
-                  <option value="true">Yes (+₱{settings.additionalHelperRate})</option>
-                </select>
-              </FieldGroup>
               <FieldGroup label="Discount (₱)">
                 <input
                   type="number"
@@ -592,7 +588,7 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   value={discountAmount}
                   min={0}
                   step="0.01"
-                  onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setDiscountAmount(e.target.value)}
                 />
               </FieldGroup>
               <FieldGroup
@@ -607,19 +603,24 @@ export function QuoteBuilderForm({ clients, truckTypes, settings, initial, defau
                   min={0}
                   step="0.01"
                   placeholder="Leave blank to use computed price"
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setManualOverridePrice(v === "" ? "" : parseFloat(v) || 0);
-                  }}
+                  onChange={(e) => setManualOverridePrice(e.target.value)}
                 />
               </FieldGroup>
-              <FieldGroup label="Payment Terms" hint="Appears on the client-facing PDF quotation." span2>
-                <textarea
-                  name="paymentTerms"
-                  style={{ ...inputStyle, resize: "vertical", minHeight: 64 }}
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                />
+              <FieldGroup label="Payment Terms" hint="Fixed text shown on every PDF quotation. Edit the template in Payment Config (under Configuration) if it needs to change." span2>
+                <input type="hidden" name="paymentTerms" value={paymentTerms} />
+                <div
+                  style={{
+                    ...inputStyle,
+                    minHeight: 64,
+                    background: "var(--surface)",
+                    color: "var(--ink-soft)",
+                    cursor: "default",
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {paymentTerms}
+                </div>
               </FieldGroup>
             </div>
           </SectionCard>

@@ -89,20 +89,17 @@ export function PriceBreakdownPanel({ result }: Props) {
               {result.otherDirectCosts.loadingUnloadingFee > 0 && (
                 <Row label="Loading / Unloading" amount={result.otherDirectCosts.loadingUnloadingFee} />
               )}
-              {result.otherDirectCosts.condoFee > 0 && (
-                <Row label="Condo handling" amount={result.otherDirectCosts.condoFee} />
+              {result.otherDirectCosts.difficultAccessFee > 0 && (
+                <Row label="Difficult Access Fee" amount={result.otherDirectCosts.difficultAccessFee} />
               )}
               {result.otherDirectCosts.cateringFee > 0 && (
                 <Row label="Catering handling" amount={result.otherDirectCosts.cateringFee} />
-              )}
-              {result.otherDirectCosts.additionalHelperFee > 0 && (
-                <Row label="Additional helper" amount={result.otherDirectCosts.additionalHelperFee} />
               )}
               {result.otherDirectCosts.excessHoursFee > 0 && (
                 <Row label="Excess hours" amount={result.otherDirectCosts.excessHoursFee} />
               )}
               {result.otherDirectCosts.extraDropoffsFee > 0 && (
-                <Row label="Extra drop-offs" amount={result.otherDirectCosts.extraDropoffsFee} />
+                <Row label="Drop-off Charge" amount={result.otherDirectCosts.extraDropoffsFee} />
               )}
               <tr style={{ borderTop: "2px solid var(--border)" }}>
                 <td style={{ padding: "8px 0 4px", fontWeight: 600, fontSize: 13 }}>Base Costs</td>

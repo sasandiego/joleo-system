@@ -9,16 +9,15 @@ function buildSettings(overrides: Partial<Record<string, number>> = {}) {
     helperRate: 0.075,
     overheadRate: 0.05,
     longDistanceRate: 0.05,
-    longDistanceThresholdKm: 50,
+    longDistanceThresholdKm: 40,
     fuelFloor: 500,
     fuelEfficiencyKmpl: 5,
     dieselPricePerLiter: 70,
-    distanceRatePerKm: 12,
+    distanceRatePerKm: 30,
     additionalHourRate: 350,
-    additionalHelperRate: 600,
     additionalDropoffCharge: 300,
     standardIncludedHours: 8,
-    condoHandlingFee: 500,
+    difficultAccessFee: 500,
     cateringHandlingFee: 400,
     loadingUnloadingFee: 0,
     vatRate: 0.12,
@@ -35,10 +34,9 @@ function buildSettings(overrides: Partial<Record<string, number>> = {}) {
     dieselPricePerLiter: new Decimal(merged.dieselPricePerLiter),
     distanceRatePerKm: new Decimal(merged.distanceRatePerKm),
     additionalHourRate: new Decimal(merged.additionalHourRate),
-    additionalHelperRate: new Decimal(merged.additionalHelperRate),
     additionalDropoffCharge: new Decimal(merged.additionalDropoffCharge),
     standardIncludedHours: merged.standardIncludedHours,
-    condoHandlingFee: new Decimal(merged.condoHandlingFee),
+    difficultAccessFee: new Decimal(merged.difficultAccessFee),
     cateringHandlingFee: new Decimal(merged.cateringHandlingFee),
     loadingUnloadingFee: new Decimal(merged.loadingUnloadingFee),
     vatRate: new Decimal(merged.vatRate),
@@ -57,10 +55,10 @@ function buildInput(overrides: Partial<PricingInput> = {}): PricingInput {
     estimatedDistanceKm: 30,
     estimatedJobHours: 8,
     tripBillingType: "EIGHT_HOUR",
+    numberOfHelpers: 1,
     numberOfDropoffs: 1,
-    condoService: false,
+    difficultAccess: false,
     cateringService: false,
-    additionalHelper: false,
     tollFee: 0,
     discountAmount: 0,
     vatOption: "VAT_EXCLUSIVE",
@@ -122,8 +120,8 @@ describe("Pricing engine — fuel floor", () => {
 });
 
 describe("Pricing engine — long-distance surcharge", () => {
-  it("does NOT trigger at 49 km", () => {
-    const result = computePrice(buildInput({ estimatedDistanceKm: 49 }), {
+  it("does NOT trigger at 39 km", () => {
+    const result = computePrice(buildInput({ estimatedDistanceKm: 39 }), {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
@@ -132,8 +130,8 @@ describe("Pricing engine — long-distance surcharge", () => {
     expect(result.allocations.longDistance).toBe(0);
   });
 
-  it("triggers exactly at the 50 km threshold", () => {
-    const result = computePrice(buildInput({ estimatedDistanceKm: 50 }), {
+  it("triggers exactly at the 40 km threshold", () => {
+    const result = computePrice(buildInput({ estimatedDistanceKm: 40 }), {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
@@ -352,12 +350,12 @@ describe("Pricing engine — manual override", () => {
 });
 
 describe("Pricing engine — service flag fees", () => {
-  it("condo flag adds condo handling fee", () => {
-    const result = computePrice(buildInput({ condoService: true }), {
+  it("difficultAccess flag adds difficult access fee", () => {
+    const result = computePrice(buildInput({ difficultAccess: true }), {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
-    expect(result.otherDirectCosts.condoFee).toBe(500);
+    expect(result.otherDirectCosts.difficultAccessFee).toBe(500);
   });
 
   it("catering flag adds catering fee", () => {
@@ -368,20 +366,114 @@ describe("Pricing engine — service flag fees", () => {
     expect(result.otherDirectCosts.cateringFee).toBe(400);
   });
 
-  it("additional helper flag adds helper fee", () => {
-    const result = computePrice(buildInput({ additionalHelper: true }), {
+  it("extra helpers scale the helper markup (2 helpers → 2 × helperRate)", () => {
+    const oneHelper = computePrice(buildInput({ numberOfHelpers: 1 }), {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
-    expect(result.otherDirectCosts.additionalHelperFee).toBe(600);
+    const twoHelpers = computePrice(buildInput({ numberOfHelpers: 2 }), {
+      truckType: buildTruckType(3000, 4200),
+      settings: buildSettings({ distanceRatePerKm: 0 }),
+    });
+    // 1 helper: markup = 0.15+0.075+0.05 = 0.275
+    // 2 helpers: markup = 0.15+0.15+0.05 = 0.35
+    expect(oneHelper.markupRate).toBe(0.275);
+    expect(twoHelpers.markupRate).toBe(0.35);
+    // Helper allocation = revenue × (helperRate × numberOfHelpers). The exact ratio
+    // depends on revenue too, but 2-helper allocation must exceed 2× the 1-helper one
+    // because revenue itself also rises with the higher markup.
+    expect(twoHelpers.allocations.helper).toBeGreaterThan(oneHelper.allocations.helper * 2);
+    expect(twoHelpers.finalPrice).toBeGreaterThan(oneHelper.finalPrice);
   });
 
-  it("extra drop-offs charge each beyond the first", () => {
-    const result = computePrice(buildInput({ numberOfDropoffs: 3 }), {
+  it("3 helpers gives 3 × helperRate markup", () => {
+    const result = computePrice(buildInput({ numberOfHelpers: 3 }), {
       truckType: buildTruckType(3000, 4200),
       settings: buildSettings({ distanceRatePerKm: 0 }),
     });
-    expect(result.otherDirectCosts.extraDropoffsFee).toBe(600);
+    // markup = 0.15 + (0.075 × 3) + 0.05 = 0.425
+    expect(result.markupRate).toBe(0.425);
+  });
+
+  it("rejects numberOfHelpers < 1", () => {
+    expect(() =>
+      computePrice(buildInput({ numberOfHelpers: 0 }), {
+        truckType: buildTruckType(3000, 4200),
+        settings: buildSettings(),
+      }),
+    ).toThrow(PricingValidationError);
+  });
+
+  it("rejects non-integer numberOfHelpers", () => {
+    expect(() =>
+      computePrice(buildInput({ numberOfHelpers: 1.5 }), {
+        truckType: buildTruckType(3000, 4200),
+        settings: buildSettings(),
+      }),
+    ).toThrow(PricingValidationError);
+  });
+
+  it("drop-off charge: 1 drop-off → 0", () => {
+    const result = computePrice(buildInput({ numberOfDropoffs: 1 }), {
+      truckType: buildTruckType(3000, 4200),
+      settings: buildSettings({ distanceRatePerKm: 0 }),
+    });
+    expect(result.otherDirectCosts.extraDropoffsFee).toBe(0);
+  });
+
+  it("drop-off charge: 2 drop-offs → 300 (1 extra × 300)", () => {
+    const result = computePrice(buildInput({ numberOfDropoffs: 2 }), {
+      truckType: buildTruckType(3000, 4200),
+      settings: buildSettings({ distanceRatePerKm: 0 }),
+    });
+    expect(result.otherDirectCosts.extraDropoffsFee).toBe(300);
+  });
+
+  it("drop-off charge: 5 drop-offs → 1,200 (4 extras × 300)", () => {
+    const result = computePrice(buildInput({ numberOfDropoffs: 5 }), {
+      truckType: buildTruckType(3000, 4200),
+      settings: buildSettings({ distanceRatePerKm: 0 }),
+    });
+    expect(result.otherDirectCosts.extraDropoffsFee).toBe(1200);
+  });
+});
+
+// FIX-008/010/012 + per-helper markup acceptance: deterministic 40 km scenario.
+// Uses seeded 14ft truck eight-hour base of 5,200.
+// Inputs: 40 km, 2 helpers (was 1 + add'l helper flag), difficult access, 1 dropoff.
+describe("Pricing engine — 40 km acceptance (per-helper markup)", () => {
+  it("40 km / 14ft (5,200 eight-hour base) / 2 helpers / difficult access", () => {
+    const result = computePrice(
+      buildInput({
+        estimatedDistanceKm: 40,
+        numberOfHelpers: 2,
+        difficultAccess: true,
+        numberOfDropoffs: 1,
+        vatOption: "VAT_EXCLUSIVE",
+      }),
+      {
+        truckType: buildTruckType(5200, 6500),
+        settings: buildSettings(),
+      },
+    );
+
+    // Base = fuel(1,120) + trip(5,200) + distance(40*30=1,200) + diffAccess(500) = 8,020
+    // (no flat helper fee any more; helpers are absorbed into the markup)
+    expect(result.fuelCost).toBe(1120);
+    expect(result.tripBase).toBe(5200);
+    expect(result.distanceCharge).toBe(1200);
+    expect(result.otherDirectCosts.difficultAccessFee).toBe(500);
+    expect(result.otherDirectCosts.extraDropoffsFee).toBe(0);
+    expect(result.baseCosts).toBe(8020);
+
+    // Long-distance triggered at 40 km. Markup = 0.15 + (0.075×2) + 0.05 + 0.05 = 0.40
+    expect(result.isLongDistance).toBe(true);
+    expect(result.markupRate).toBe(0.4);
+
+    // Revenue = 8,020 / 0.60 = 13,366.67 → VAT = 1,604.00 → Final = 14,970.67
+    expect(result.revenueNetOfVat).toBe(13366.67);
+    expect(result.vatAmount).toBe(1604);
+    expect(result.finalPrice).toBe(14970.67);
   });
 });
 

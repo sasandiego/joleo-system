@@ -9,10 +9,10 @@ import { transitionBookingAction, updateBookingAssignmentAction } from "@/action
 import { computePrice } from "@/features/pricing/engine";
 
 interface QuoteParams {
+  numberOfHelpers: number;
   numberOfDropoffs: number;
-  condoService: boolean;
+  difficultAccess: boolean;
   cateringService: boolean;
-  additionalHelper: boolean;
   tollFee: number;
   discountAmount: number;
   vatOption: "VAT_INCLUSIVE" | "VAT_EXCLUSIVE" | "NON_VAT";
@@ -27,11 +27,10 @@ interface RateSettingsFlat {
   dieselPricePerLiter: number;
   fuelFloor: number;
   fuelEfficiencyKmpl: number;
-  additionalHelperRate: number;
   additionalHourRate: number;
   additionalDropoffCharge: number;
   standardIncludedHours: number;
-  condoHandlingFee: number;
+  difficultAccessFee: number;
   cateringHandlingFee: number;
   loadingUnloadingFee: number;
   distanceRatePerKm: number;
@@ -289,10 +288,10 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers, rateSet
           estimatedDistanceKm: booking.estimatedDistanceKm,
           estimatedJobHours: booking.estimatedHours ?? rateSettings.standardIncludedHours,
           tripBillingType: booking.tripBillingType,
+          numberOfHelpers: booking.quoteParams.numberOfHelpers,
           numberOfDropoffs: booking.quoteParams.numberOfDropoffs,
-          condoService: booking.quoteParams.condoService,
+          difficultAccess: booking.quoteParams.difficultAccess,
           cateringService: booking.quoteParams.cateringService,
-          additionalHelper: booking.quoteParams.additionalHelper,
           tollFee: booking.quoteParams.tollFee,
           discountAmount: booking.quoteParams.discountAmount,
           vatOption: booking.quoteParams.vatOption,
@@ -311,11 +310,10 @@ export function BookingDetailClient({ booking, trucks, drivers, helpers, rateSet
             dieselPricePerLiter: w(rateSettings.dieselPricePerLiter),
             fuelFloor: w(rateSettings.fuelFloor),
             fuelEfficiencyKmpl: w(rateSettings.fuelEfficiencyKmpl),
-            additionalHelperRate: w(rateSettings.additionalHelperRate),
             additionalHourRate: w(rateSettings.additionalHourRate),
             additionalDropoffCharge: w(rateSettings.additionalDropoffCharge),
             standardIncludedHours: rateSettings.standardIncludedHours,
-            condoHandlingFee: w(rateSettings.condoHandlingFee),
+            difficultAccessFee: w(rateSettings.difficultAccessFee),
             cateringHandlingFee: w(rateSettings.cateringHandlingFee),
             loadingUnloadingFee: w(rateSettings.loadingUnloadingFee),
             distanceRatePerKm: w(rateSettings.distanceRatePerKm),

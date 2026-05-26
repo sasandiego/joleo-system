@@ -254,10 +254,9 @@ export function QuotationPDF({
     `Billing: ${billingLabel(inp.tripBillingType)}`,
     "Loading & Unloading",
   ];
-  if (inp.condoService) inclusions.push("Condominium Handling");
+  if (inp.difficultAccess) inclusions.push("Difficult Access Handling");
   if (inp.cateringService) inclusions.push("Catering Handling");
   if (pricing.isLongDistance) inclusions.push("Long-Distance Coverage");
-  if (inp.additionalHelper) inclusions.push("Additional Helper");
   if (inp.numberOfDropoffs > 1) inclusions.push(`${inp.numberOfDropoffs} Drop-off Points`);
 
   const exclusions: string[] = [

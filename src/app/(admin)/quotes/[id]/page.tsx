@@ -163,10 +163,9 @@ export default async function QuoteDetailPage({ params }: Props) {
           {/* Service flags — only show what's actually selected; hide the section entirely if none. */}
           {(() => {
             const activeFlags = [
-              quote.condoService && "Condo Service",
+              quote.difficultAccess && "Difficult Access",
               quote.cateringService && "Catering",
-              quote.additionalHelper && "Additional Helper",
-              pricing.isLongDistance && `Long Distance (≥ ${pricing.ratesSnapshot?.longDistanceThresholdKm ?? 50}km)`,
+              pricing.isLongDistance && `Long Distance (≥ ${pricing.ratesSnapshot?.longDistanceThresholdKm ?? 40}km)`,
             ].filter((f): f is string => Boolean(f));
             if (activeFlags.length === 0) return null;
             return (
@@ -238,14 +237,11 @@ export default async function QuoteDetailPage({ params }: Props) {
                   {pricing.otherDirectCosts.loadingUnloadingFee > 0 && (
                     <Row label="Loading / unloading" amount={pricing.otherDirectCosts.loadingUnloadingFee} />
                   )}
-                  {pricing.otherDirectCosts.condoFee > 0 && (
-                    <Row label="Condo handling" amount={pricing.otherDirectCosts.condoFee} />
+                  {pricing.otherDirectCosts.difficultAccessFee > 0 && (
+                    <Row label="Difficult Access Fee" amount={pricing.otherDirectCosts.difficultAccessFee} />
                   )}
                   {pricing.otherDirectCosts.cateringFee > 0 && (
                     <Row label="Catering handling" amount={pricing.otherDirectCosts.cateringFee} />
-                  )}
-                  {pricing.otherDirectCosts.additionalHelperFee > 0 && (
-                    <Row label="Additional helper" amount={pricing.otherDirectCosts.additionalHelperFee} />
                   )}
                   {pricing.otherDirectCosts.excessHoursFee > 0 && (
                     <Row label="Excess hours" amount={pricing.otherDirectCosts.excessHoursFee} />

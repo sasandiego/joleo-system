@@ -5,35 +5,41 @@ import { db } from "@/lib/db";
 import { auth } from "@/features/auth/config";
 import { revalidatePath } from "next/cache";
 
+// Reject empty/whitespace strings before coercion.
+// Without this, z.coerce.number() turns "" into 0 — silently saving a cleared
+// numeric field as ₱0 / 0%. Empty becomes undefined so the inner schema fails
+// with "Required" instead of accepting 0.
+const num = <T extends z.ZodTypeAny>(inner: T) =>
+  z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), inner);
+
 // Percentages come in as 0-100 from the UI; stored as 0-1 fractions.
 const schema = z.object({
   // Labor markups (percent inputs)
-  driverRate: z.coerce.number().min(0).max(100),
-  helperRate: z.coerce.number().min(0).max(100),
+  driverRate: num(z.coerce.number().min(0).max(100)),
+  helperRate: num(z.coerce.number().min(0).max(100)),
 
   // Overhead & surcharges
-  overheadRate: z.coerce.number().min(0).max(100),
-  longDistanceRate: z.coerce.number().min(0).max(100),
-  longDistanceThresholdKm: z.coerce.number().int().positive(),
+  overheadRate: num(z.coerce.number().min(0).max(100)),
+  longDistanceRate: num(z.coerce.number().min(0).max(100)),
+  longDistanceThresholdKm: num(z.coerce.number().int().positive()),
 
   // Fuel config
-  dieselPricePerLiter: z.coerce.number().positive(),
-  fuelFloor: z.coerce.number().nonnegative(),
-  fuelEfficiencyKmpl: z.coerce.number().positive(),
+  dieselPricePerLiter: num(z.coerce.number().positive()),
+  fuelFloor: num(z.coerce.number().nonnegative()),
+  fuelEfficiencyKmpl: num(z.coerce.number().positive()),
 
   // Add-on rates
-  additionalHelperRate: z.coerce.number().nonnegative(),
-  additionalHourRate: z.coerce.number().nonnegative(),
-  additionalDropoffCharge: z.coerce.number().nonnegative(),
-  standardIncludedHours: z.coerce.number().int().positive(),
+  additionalHourRate: num(z.coerce.number().nonnegative()),
+  additionalDropoffCharge: num(z.coerce.number().nonnegative()),
+  standardIncludedHours: num(z.coerce.number().int().positive()),
 
   // Service fees
-  condoHandlingFee: z.coerce.number().nonnegative(),
-  cateringHandlingFee: z.coerce.number().nonnegative(),
-  loadingUnloadingFee: z.coerce.number().nonnegative(),
+  difficultAccessFee: num(z.coerce.number().nonnegative()),
+  cateringHandlingFee: num(z.coerce.number().nonnegative()),
+  loadingUnloadingFee: num(z.coerce.number().nonnegative()),
 
   // Distance
-  distanceRatePerKm: z.coerce.number().nonnegative(),
+  distanceRatePerKm: num(z.coerce.number().nonnegative()),
 
   // Per-truck-type rates: arrive as JSON string from the form
   truckTypeRates: z.string(),
@@ -54,11 +60,12 @@ function serializeForLog(obj: Record<string, any>): Record<string, number | stri
   );
 }
 
+// Truck-type base rates must be positive — a ₱0 rate is always a misconfiguration.
 const truckRateSchema = z.array(
   z.object({
     id: z.string().min(1),
-    eightHourBaseRate: z.number().nonnegative(),
-    perTripBaseRate: z.number().nonnegative(),
+    eightHourBaseRate: z.number().positive(),
+    perTripBaseRate: z.number().positive(),
   }),
 );
 
@@ -71,7 +78,15 @@ export async function updatePricingConfigAction(
 
   const parsed = schema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Validation error." };
+    const issue = parsed.error.issues[0];
+    const field = issue?.path?.join(".") ?? "field";
+    // Empty string → preprocess returns undefined → z.coerce.number coerces to NaN.
+    // Rewrite the resulting "Expected number, received nan" to a clearer "is required".
+    const message =
+      issue?.message === "Expected number, received nan"
+        ? "is required (cannot be empty)"
+        : issue?.message ?? "Validation error.";
+    return { error: `${field}: ${message}` };
   }
 
   const d = parsed.data;
@@ -88,7 +103,12 @@ export async function updatePricingConfigAction(
   let truckTypeRates: { id: string; eightHourBaseRate: number; perTripBaseRate: number }[];
   try {
     truckTypeRates = truckRateSchema.parse(JSON.parse(d.truckTypeRates));
-  } catch {
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      const issue = e.issues[0];
+      const field = issue?.path?.join(".") ?? "truck rate";
+      return { error: `Truck rates — ${field}: ${issue?.message ?? "invalid"}` };
+    }
     return { error: "Invalid truck-type rates payload." };
   }
 
@@ -109,11 +129,11 @@ export async function updatePricingConfigAction(
       dieselPricePerLiter: d.dieselPricePerLiter,
       fuelFloor: d.fuelFloor,
       fuelEfficiencyKmpl: d.fuelEfficiencyKmpl,
-      additionalHelperRate: d.additionalHelperRate,
       additionalHourRate: d.additionalHourRate,
       additionalDropoffCharge: d.additionalDropoffCharge,
       standardIncludedHours: d.standardIncludedHours,
-      condoHandlingFee: d.condoHandlingFee,
+      difficultAccessFee: d.difficultAccessFee,
+      // (additionalHelperRate removed — helper cost now scales via helperRate × numberOfHelpers)
       cateringHandlingFee: d.cateringHandlingFee,
       loadingUnloadingFee: d.loadingUnloadingFee,
       distanceRatePerKm: d.distanceRatePerKm,
@@ -172,18 +192,17 @@ export async function resetPricingConfigDefaultsAction(): Promise<PricingConfigS
       helperRate: 0.075,
       overheadRate: 0.05,
       longDistanceRate: 0.05,
-      longDistanceThresholdKm: 50,
+      longDistanceThresholdKm: 40,
       dieselPricePerLiter: 70,
       fuelFloor: 500,
       fuelEfficiencyKmpl: 5,
-      additionalHelperRate: 600,
       additionalHourRate: 350,
       additionalDropoffCharge: 300,
       standardIncludedHours: 8,
-      condoHandlingFee: 500,
+      difficultAccessFee: 500,
       cateringHandlingFee: 400,
       loadingUnloadingFee: 0,
-      distanceRatePerKm: 12,
+      distanceRatePerKm: 30,
       updatedBy: session.user.username as string,
     },
   });

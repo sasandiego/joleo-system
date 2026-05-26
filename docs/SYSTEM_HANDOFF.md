@@ -1,10 +1,14 @@
 # SYSTEM_HANDOFF
 
 ## Last Updated
-2026-05-24 — Obsidian Trucking vault documented + Joleo Transport 6-month marketing plan finalized (no code changes)
+2026-05-26 — Per-helper markup refactor + FIX-008→012 + silent-₱0-save guard + JWT FK fix
 
 ## Current System State
-Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green. All Phase 1 milestones (M1–M10) + 6-phase pricing engine refactor + Phase 1.5 (Clients & AI) complete, all on `main`. Full feature set: auth, masterlists CRUD, pricing config, pricing engine (bottom-up), quote builder + editor + PDF with AI generation, bookings with FSM + convert-from-quote, truck availability calendar, live dashboard, sidebar Logout. Login with `vyela` / `admin`, `gina` / `admin`, or `shem` / `admin`.
+Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 36/36 green. All Phase 1 milestones (M1–M10) + 6-phase pricing engine refactor + Phase 1.5 (Clients & AI) complete, all on `main`. Full feature set: auth, masterlists CRUD, pricing config, pricing engine (bottom-up + per-helper markup), quote builder + editor + PDF with AI generation, bookings with FSM + convert-from-quote, truck availability calendar, live dashboard, sidebar Logout. Login with `vyela` / `admin`, `gina` / `admin`, or `shem` / `admin`.
+
+**New (2026-05-26):** Pricing engine scales the helper markup by `numberOfHelpers` (Gina's rule: every helper adds `helperRate` (7.5% default) to revenue net of VAT). The standalone "Additional Helper?" boolean flag and its ₱750 fixed surcharge are gone. `Quote.additionalHelper` and `RateSettings.additionalHelperRate` columns dropped (migration `20260526010000_drop_additional_helper`). Engine validates `numberOfHelpers ≥ 1` (integer). Plus FIX-008→012 from earlier in the day: drop-off-charge label, condo→difficult-access full rename (migration `20260526000000_rename_condo_to_difficult_access`), helper rate 600→750→(removed), number-input clearing bug fixed via string-state refactor across both pricing forms, distance 12→30/km, long-distance threshold 50→40 km. Silent ₱0-save guard added: `num()` zod preprocessor + client-side `emptyFields` validation in PricingConfigForm; truck rates tightened to `.positive()`. `mapDbError()` helper in `quotes.ts` translates Prisma P2003 on `createdById` FK to "Your sign-in session is no longer valid. Please log out and log back in." (root cause: stale JWT after reseed). Payment Terms field made read-only display in QuoteBuilderForm (still saved per-quote via hidden input).
+
+**New (2026-05-24):** `CompanyProfile` singleton model (phone/mobile/email/address for Joleo; id=1); `PaymentConfig` gains 1:1 FK to `CompanyProfile`. `sendQuoteEmailAction` sends the PDF quotation via Resend (`noreply@sas-agent.co.uk`) to the client's email — gated on booking status CONFIRMED/DISPATCHED/COMPLETED and client having an email on file. `SendEmailButton` on quote detail page: always visible, disabled when conditions unmet, opens AlertDialog for confirmation. `/company-profile` admin page under Configuration in the sidebar. PDF footer now shows live company contact details (phone · mobile · email + address) from `CompanyProfile`.
 
 **Public URL:** `https://joleo.sas-agent.co.uk` (via the existing Nucbox cloudflared tunnel, ID `bda80536-0b37-4881-b1f7-bf2bf6b348ac`). Dev server bound to `*:3000`, accessible via LAN (`192.168.254.166`), Tailscale (`100.87.42.111`), and the public hostname. `NEXTAUTH_URL=https://joleo.sas-agent.co.uk` set in `.env.local` so post-login redirects resolve correctly.
 
@@ -37,7 +41,8 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `(admin)/calendar/page.tsx` — week grid; `?week=YYYY-MM-DD` param; loads trucks + bookings for week
 - `(admin)/dashboard/page.tsx` — live stats + today's schedule + Fleet Status card + Recent Quotes card + 2-col split layout
 - `(admin)/payment-config/page.tsx` — Payment Details config (singleton PaymentConfig; bank × 2 + GCash)
-- `api/quotes/[id]/pdf/route.tsx` — fetches PaymentConfig + passes to QuotationPDF
+- `(admin)/company-profile/page.tsx` — Company Profile config (singleton CompanyProfile; phone/mobile/email/address)
+- `api/quotes/[id]/pdf/route.tsx` — thin wrapper calling `generateQuotePdf()`
 
 ### Top-level app files (`src/app/`)
 - `icon.png` — 32×32 favicon (generated from `docs/356378784_*.jpg` via sharp + trim)
@@ -55,8 +60,10 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `quotes/QuoteListClient.tsx` — quotes table with status badges
 - `quotes/QuoteBuilderForm.tsx` — client component: billing type toggle, auto long-distance hint, manual override price, service-flag dropdowns with inline ₱ amounts
 - `quotes/PriceBreakdownPanel.tsx` — new shape: base components → revenue allocations → revenue/VAT/toll → final (override row when applicable)
-- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document; Payment Terms + Payment Details (bank/GCash) + Conforme; tightened spacing for single-page guarantee
+- `pdf/QuotationPDF.tsx` — @react-pdf/renderer A4 document; Payment Terms + Payment Details (bank/GCash) + Conforme; footer shows CompanyProfile contact details
 - `payment-config/PaymentConfigForm.tsx` — editable form, 3 method cards (Bank 1, Bank 2, GCash)
+- `company-profile/CompanyProfileForm.tsx` — editable form for phone/mobile/email/address
+- `quotes/SendEmailButton.tsx` — AlertDialog confirmation + inline success/error feedback; calls `sendQuoteEmailAction`
 - `bookings/BookingListClient.tsx` — filterable bookings table (search, status, date)
 - `bookings/BookingDetailClient.tsx` — assignment form + FSM status transitions + billing type display
 - `bookings/NewBookingForm.tsx` — standalone booking creation with billing type dropdown
@@ -70,6 +77,8 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - `quotes.ts` — saveQuoteAction (QT number gen, computePrice, Quote creation), updateQuoteAction (QUOTE_UPDATED audit log), convertToBookingAction
 - `bookings.ts` — transitionBookingAction (FSM + conflict check + audit), updateBookingAssignmentAction, createBookingAction
 - `payment-config.ts` — updatePaymentConfigAction (upsert PaymentConfig singleton)
+- `company-profile.ts` — updateCompanyProfileAction (upsert CompanyProfile singleton)
+- `email.ts` — sendQuoteEmailAction (guards + PDF + Resend)
 
 ### Features
 - `src/features/auth/config.edge.ts` — edge-safe NextAuth config (no Prisma)
@@ -81,16 +90,23 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 
 ### Lib
 - `src/lib/db.ts`, `env.ts`, `format.ts`, `utils.ts`
+- `src/lib/generate-pdf.tsx` — shared `generateQuotePdf(quoteId): Promise<Buffer>`; used by PDF download route and email action
 - `src/lib/user-role.ts` — maps username → display role (shem/vyela → Owner, gina → Admin)
 - `src/middleware.ts` — auth guard via edge config; matcher excludes `_next/static`, `_next/image`, `favicon.ico`, `icon.png`, `apple-icon.png`
 - `src/types/next-auth.d.ts` — session/user/JWT type augmentation
 
 ### Schema models
 - User, TruckType (with eightHourBaseRate/perTripBaseRate), Truck, Driver, Helper, Client, RouteArea
-- RateSettings — 7 new fields: driverRate, helperRate, overheadRate, longDistanceRate, longDistanceThresholdKm, fuelFloor, fuelEfficiencyKmpl
-- Quote (with tripBillingType), Booking (with tripBillingType), BookingHelper, AuditLog
+- RateSettings — markup % fields (driver/helper/overhead/longDistance/longDistanceThresholdKm), fuel config, add-on rates (helper now scales via `helperRate × numberOfHelpers`, no separate `additionalHelperRate`), service fees (`difficultAccessFee`, `cateringHandlingFee`, `loadingUnloadingFee`), `distanceRatePerKm`
+- Quote (with tripBillingType + `difficultAccess` flag; no `additionalHelper`), Booking (with tripBillingType), BookingHelper, AuditLog
 - BillingType enum: EIGHT_HOUR | PER_TRIP
+- PaymentConfig (id=1 singleton) — bank × 2 + GCash; FK to CompanyProfile
+- CompanyProfile (id=1 singleton) — phone, mobile, email, address for Joleo Transport
 - Migration: `prisma/migrations/20260522085840_pricing_engine_refactor`
+- Migration: `prisma/migrations/20260524000000_company_profile` — creates CompanyProfile table + seeds id=1 row
+- Migration: `prisma/migrations/20260524010000_payment_config_fk` — adds companyProfileId FK to PaymentConfig
+- Migration: `prisma/migrations/20260526000000_rename_condo_to_difficult_access` — renames `RateSettings.condoHandlingFee` → `difficultAccessFee` and `Quote.condoService` → `difficultAccess`
+- Migration: `prisma/migrations/20260526010000_drop_additional_helper` — drops `Quote.additionalHelper` and `RateSettings.additionalHelperRate`
 
 ---
 
@@ -332,6 +348,68 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - Fix: explicit `.map()` with `.toNumber()` for all Decimal fields on both `trucks` and `truckTypes` arrays before passing to client; `TruckListClient` types updated from `unknown` → `number`
 - All other pages (drivers, helpers, route-areas) were already serializing correctly; trucks was the only miss
 
+### Decision: CompanyProfile singleton — Joleo contact details in DB (2026-05-24)
+- `CompanyProfile` model: id=1, phone, mobile, email, address — single editable row
+- `PaymentConfig` has a `companyProfileId Int @unique` FK pointing to `CompanyProfile.id` (1:1)
+- Seeded defaults: `(02) 7000-8985`, `0917-132-9915`, `joleo.transport@gmail.com`, `GSIS Hills, Talipapa, Caloocan`
+- Admin page `/company-profile` (sidebar: Configuration → Company Profile); `updateCompanyProfileAction` upserts id=1
+- Used by: PDF footer (via `generate-pdf.tsx`), email action body/footer
+
+### Decision: Send Email to Client — Resend SDK (2026-05-24)
+- `sendQuoteEmailAction(quoteId)` in `src/actions/email.ts`
+- Guards: `booking.status ∈ {CONFIRMED, DISPATCHED, COMPLETED}` AND `client.email` present — returns `{ error }` otherwise
+- Generates PDF via `generateQuotePdf(quoteId)` then sends via `resend.emails.send()` from `noreply@sas-agent.co.uk`
+- Email body: quote summary table + Payment Details block + contact footer (from CompanyProfile)
+- `SendEmailButton` client component: always visible on quote detail header; disabled (with tooltip) when conditions unmet; AlertDialog confirmation; inline success/error feedback via `useTransition`
+- Resend API key stored in `.env.local` ONLY — never committed to git. Env var: `RESEND_API_KEY`
+- `canSendEmail = !!client.email && !!booking && ['CONFIRMED','DISPATCHED','COMPLETED'].includes(booking.status)`
+
+### Decision: Helper compensation = `helperRate × numberOfHelpers` (2026-05-26, Gina)
+- Previously: flat `helperRate` markup (7.5%) regardless of crew size, PLUS a separate boolean `additionalHelper` flag that added a fixed ₱750 to base costs when toggled. Confusing dual lever.
+- Gina's rule: every helper adds `helperRate` to the markup. 1 helper = 7.5% (same as today's baseline), 2 helpers = 15%, 3 helpers = 22.5%, etc.
+- Engine input now requires `numberOfHelpers` (integer ≥ 1, validates loudly). Markup formula: `driverRate + (helperRate × numberOfHelpers) + overheadRate [+ longDistanceRate]`.
+- Dropped `Quote.additionalHelper` and `RateSettings.additionalHelperRate` columns (migration `20260526010000_drop_additional_helper`). UI "Additional Helper?" select, breakdown row, PDF inclusion line all removed. "Number of Helpers" hint now reads "Min 1. Each helper adds 7.5% to the markup."
+- Tests 36/36 — added per-helper scaling tests (1/2/3 helpers, ≥1 validation, non-integer rejection); rewrote 40km acceptance scenario to use `numberOfHelpers: 2` (was 1 helper + flag); new expected = ₱14,970.67 (was ₱14,551.70).
+
+### Decision: condo→difficultAccess full rename (2026-05-26, Vyela FIX-009)
+- Renamed `RateSettings.condoHandlingFee` → `difficultAccessFee` and `Quote.condoService` → `difficultAccess` across schema, engine, types, actions, all UI surfaces, PDF. Migration `20260526000000_rename_condo_to_difficult_access`.
+- New helper text: "Applies when access requires extra effort (stairs, elevator wait, parking restrictions, non-ground floor delivery)."
+- Schema rename via manual ALTER TABLE statements committed to migration; live DB columns renamed pre-deploy. No data loss (quotes were wiped pre-rename).
+
+### Decision: Drop-off charge label + new pricing config defaults (2026-05-26, Vyela FIX-008/010/012)
+- `distanceRatePerKm`: 12 → 30 (per-km service fee)
+- `longDistanceThresholdKm`: 50 → 40 (40+ km triggers the 5% surcharge)
+- `additionalHelperRate`: 600 → 750 (later removed entirely by per-helper refactor)
+- Breakdown panel label "Extra drop-offs" → "Drop-off Charge"
+- Engine already computed `extraDropoffsFee` correctly (`(numberOfDropoffs - 1) × additionalDropoffCharge`); only the label needed updating.
+
+### Decision: Number-input clearing bug — string state, parse-on-use (2026-05-26, FIX-011)
+- Old pattern: `useState<number>` + `onChange={(e) => setX(Math.max(1, parseInt(e.target.value) || 1))}` — clearing the field snapped back to 1, blocking user edits.
+- New pattern: `useState<string>` + `onChange={(e) => setX(e.target.value)}`. Parse derived numbers (`distanceKmNum`, `numHelpersNum`, etc.) at use-site with `|| 0` fallback for live preview.
+- Refactored across `QuoteBuilderForm.tsx` (6+ inputs) and `PricingConfigForm.tsx` (~15 inputs). Added `SettingsDraft` and `TruckTypeRateDraft` types so the form holds strings while the DB still gets numbers.
+
+### Decision: Silent ₱0-save guard (2026-05-26)
+- Problem surfaced by code-review: clearing any `nonnegative()` field in PricingConfigForm and saving silently persisted 0, because `z.coerce.number().nonnegative().safeParse('')` returns `{ success: true, data: 0 }` (verified).
+- Server fix: `num()` zod preprocessor in `src/actions/pricing-config.ts` maps empty/whitespace strings to `undefined`, which then fails coercion with a "is required (cannot be empty)" message (rewritten in action). Truck base rates tightened from `.nonnegative()` to `.positive()` — a ₱0 base rate is always misconfigured.
+- Client fix: `emptyFields` memo in `PricingConfigForm.tsx` lists every cleared / zero-truck-base field with its user-facing label. `canSave = isDirty && markupOk && !hasEmpty`. Save button disabled with tooltip; yellow warning banner above the form lists which fields need attention and explains "Empty fields would save as ₱0 / 0%, silently overwriting the current rate."
+- Action error reporter prefixes the field name (e.g. `dieselPricePerLiter: is required (cannot be empty)`) so the banner is actionable.
+
+### Decision: Quote-save P2003/createdById → "session stale" actionable error (2026-05-26)
+- Problem: Vyela's quote save threw a cryptic `Foreign key constraint violated on the constraint: Quote_createdById_fkey`. Root cause: her browser's NextAuth JWT cookie held a `user.id` from before a past User-table reseed. Real `vyela` row exists with a different id.
+- Fix: `mapDbError()` helper in `src/actions/quotes.ts` catches Prisma errors and translates `P2003` on `createdById` to "Your sign-in session is no longer valid (the user account it refers to is missing). Please log out and log back in, then retry." Other P2003s include the field name. All other errors get a generic message + `console.error(actualError)` for diagnosis.
+- Applied to both `saveQuoteAction` and `updateQuoteAction`. Removes the prior silent `catch { return { error: "Failed to save quote." } }`.
+
+### Decision: Payment Terms is read-only display, not editable per quote (2026-05-26)
+- Was a freely-editable `<textarea>` in QuoteBuilderForm Section C with default boilerplate. Vyela: "should just be uneditable."
+- Now renders as a tinted read-only block showing the text that will appear on the PDF. Hidden `<input name="paymentTerms" />` still serializes the value (default text or whatever's stored on the quote) so existing flow is unchanged. State setter removed (paymentTerms is now a const derived from `initial?.paymentTerms ?? DEFAULT_PAYMENT_TERMS`).
+- Hint text: "Fixed text shown on every PDF quotation. Edit the template in Payment Config (under Configuration) if it needs to change." (Note: editing the template isn't actually wired to Payment Config yet — flag for future work if the default ever needs to change.)
+
+### Decision: PDF footer shows live CompanyProfile contact details (2026-05-24)
+- Footer left: `{phone}  ·  {mobile}  ·  {email}` (from CompanyProfile)
+- Footer right: `{address}` (from CompanyProfile)
+- Falls back to static strings if CompanyProfile not yet set
+- `generate-pdf.tsx` fetches `paymentConfig` with `include: { companyProfile: true }` and passes `companyProfile` prop to `QuotationPDF`
+
 ### Decision: Sidebar Logout button (2026-05-22)
 - `signOutAction` existed in `src/actions/auth.ts` but had no UI trigger. Added a small "Logout" button to the sidebar footer next to the user info card.
 - Uses `<form action={signOutAction}>` — works from a client component because signOutAction is "use server".
@@ -350,7 +428,7 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 - pnpm 11 requires `allowBuilds:` in `pnpm-workspace.yaml` with **booleans**, not placeholder strings
 - cloudflared cert.pem on the Nucbox is only authorized for the aplaya-dev.cc zone — create sas-agent.co.uk CNAMEs via Cloudflare dashboard manually
 - sudo on the Nucbox needs a real TTY — Claude Code's Bash tool cannot prompt for password
-- **JWT session staleness:** Auth.js v5 stores user.id in the JWT cookie. If the User table is reseeded, old browser sessions reference dead user IDs → `Foreign key constraint violated on Quote_createdById_fkey` on save. Fix: user must log out and back in (now possible via the new sidebar Logout button).
+- **JWT session staleness:** Auth.js v5 stores user.id in the JWT cookie. If the User table is reseeded, old browser sessions reference dead user IDs → `Foreign key constraint violated on Quote_createdById_fkey` on save. The action now catches this via `mapDbError()` and returns "Your sign-in session is no longer valid (the user account it refers to is missing). Please log out and log back in, then retry." Fix: user clicks Logout in sidebar and re-authenticates.
 - **HTML5 `pattern` attribute** compiles with `/v` flag in modern browsers: `(`, `)`, and certain hyphen positions inside character classes throw `Invalid character in character class`. Use live JS sanitization + onBlur reformat + server-side Zod regex instead.
 - **React 19 form-action reset behavior:** uncontrolled inputs lose their values after `<form action={serverAction}>` completes (even on error). Controlled state survives — but native `<select>` still has reconciliation quirks; use hidden input + UI-only select.
 - **Schema changes need dev-server restart:** `prisma generate` updates the client on disk, but Turbopack caches the OLD module in memory. Renaming/removing fields → kill `next dev`, `rm -rf .next`, restart.
@@ -358,16 +436,17 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
 
 ---
 
-## Session Continuity (2026-05-24)
-- Last worked on: Non-code session — Obsidian Trucking vault fully updated (`Project-Trucking.md`, `Context-Trucking.md`); Joleo Transport 6-month marketing plan finalized from Vyela's PPTX strategy deck and saved to `/home/agent/vault/04 Projects/Trucking/notes/Marketing-Plan.md`.
-- **Immediate next step (marketing):** Start Week 1 quick wins — Anica: TikTok setup + Facebook page refresh; Shem: list 50 target manufacturers in Caloocan/Valenzuela/Bulacan corridor; Gina: verify PaymentConfig is correct in admin portal (bank accounts + GCash).
-- **Immediate next step (system):** Live browser test on `joleo.sas-agent.co.uk` — download a PDF from an existing quote to verify Conforme + Payment Terms + Payment Details render correctly on one page. (Carried over from 2026-05-23 — not yet done.)
-- **Pending decision:** Mobile responsiveness — Shem/Vyela thinking it over. Scope: ~25 files, 3–4 sessions. Complex forms = Quote Builder + Booking Detail; everything else straightforward.
+## Session Continuity (2026-05-26)
+- Last worked on: Per-helper markup refactor (Gina's rule); FIX-008→012 (Vyela's pricing feedback); silent ₱0-save guard; `mapDbError()` for stale-JWT FK violations; Payment Terms made read-only. 36/36 tests pass, TSC clean, dev server up on `localhost:3000` (181 MB RSS, healthy).
+- **Immediate next step (Vyela):** Log out + log back in on `joleo.sas-agent.co.uk` to flush the stale JWT (the FK error she hit was caused by her browser still carrying a JWT for a user.id that no longer exists post-reseed). Then test: (1) helper count drives price (try 1, 2, 3 helpers and watch markup scale); (2) clearing a pricing-config field is now blocked with a yellow banner; (3) Payment Terms is read-only display on /quotes/new; (4) save a quote successfully end-to-end.
+- **Expected pricing reference (40 km, 14ft truck, 2 helpers, difficult access, 1 dropoff, VAT-exclusive):** baseCosts ₱8,020 → markup 40% → revenue ₱13,366.67 → VAT ₱1,604.00 → **final ₱14,970.67**. Was ₱14,551.70 under the old flag model.
 - **Open items:**
-  - `docs/Joleo_Update_Guide.md` worked-example ₱ figure still outdated; correct value is ₱5,932.14.
+  - `docs/Joleo_Update_Guide.md` worked-example ₱ figure still outdated (correct: ₱5,932.14). Doc not yet updated.
   - Walk-in `walkInName` column still on Quote/Booking — unused but harmless.
   - Italic Service Description on PDF — can re-add by registering `DejaVuSans-Oblique.ttf` in `public/fonts/`.
-- **Not blocked:** TSC clean, 30/30 tests pass, dev server healthy on `localhost:3000`.
+  - Payment Terms read-only currently displays from a hardcoded constant in QuoteBuilderForm — wire to PaymentConfig or admin-editable template if business wants to vary it.
+  - Mobile responsiveness — pending Shem/Vyela decision. Scope: ~25 files, 3–4 sessions.
+- **Not blocked:** TSC clean, 36/36 tests pass, dev server healthy.
 - Do NOT touch:
   - `/etc/cloudflared/config.yml` and other ingress entries on the Nucbox
   - Font system (must stay on Google Fonts CDN per user directive)
@@ -375,6 +454,7 @@ Next.js 15.5 app, `pnpm exec tsc --noEmit` clean, `pnpm test --run` 30/30 green.
   - DejaVu font files in `public/fonts/`
   - `pnpm-workspace.yaml` `allowBuilds:` booleans
   - HTML `pattern` attribute — re-adding it crashes modern browsers under `/v` flag
+  - `RESEND_API_KEY` — stored in `.env.local` only, never commit to git
 
 ---
 

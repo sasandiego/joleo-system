@@ -31,7 +31,7 @@ function pct4(v: Decimal): number {
  * Formula (per Joleo_Update_Guide.md SECTION B):
  *   fuel_cost          = MAX(fuelFloor, distance × 2 / efficiency × diesel_price)
  *   base_costs         = fuel + trip_base + distance_charge + other_direct_costs + toll
- *   markup_total       = driverRate + helperRate + overheadRate
+ *   markup_total       = driverRate + (helperRate × numberOfHelpers) + overheadRate
  *                        + (longDistanceRate IF distance ≥ threshold)
  *   revenue_net_of_vat = base_costs / (1 - markup_total)
  *   vat                = revenue_net_of_vat × vatRate  (unless NON_VAT)
@@ -49,6 +49,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   if (input.estimatedDistanceKm <= 0) {
     throw new PricingValidationError("Distance must be greater than 0 km.");
   }
+  if (input.numberOfHelpers < 1 || !Number.isInteger(input.numberOfHelpers)) {
+    throw new PricingValidationError("Number of helpers must be an integer ≥ 1.");
+  }
 
   // Pull all rates into Decimal
   const driverRate = d(settings.driverRate.toNumber());
@@ -60,10 +63,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   const fuelEfficiencyKmpl = d(settings.fuelEfficiencyKmpl.toNumber());
   const distanceRatePerKm = d(settings.distanceRatePerKm.toNumber());
   const additionalHourRate = d(settings.additionalHourRate.toNumber());
-  const additionalHelperRate = d(settings.additionalHelperRate.toNumber());
   const additionalDropoffCharge = d(settings.additionalDropoffCharge.toNumber());
   const standardIncludedHours = settings.standardIncludedHours;
-  const condoHandlingFee = d(settings.condoHandlingFee.toNumber());
+  const difficultAccessFee = d(settings.difficultAccessFee.toNumber());
   const cateringHandlingFee = d(settings.cateringHandlingFee.toNumber());
   const loadingUnloadingFee = d(settings.loadingUnloadingFee.toNumber());
   const vatRate = d(settings.vatRate.toNumber());
@@ -103,10 +105,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   const distanceCharge = d(input.estimatedDistanceKm).mul(distanceRatePerKm);
 
   // ── Other direct costs ───────────────────────────────────────────────────
-  const condoFee = input.condoService ? condoHandlingFee : d(0);
+  const difficultAccess = input.difficultAccess ? difficultAccessFee : d(0);
   const cateringFee = input.cateringService ? cateringHandlingFee : d(0);
   const loadingFee = loadingUnloadingFee; // always applied if rate > 0
-  const additionalHelperFee = input.additionalHelper ? additionalHelperRate : d(0);
 
   // Excess hours only meaningful for EIGHT_HOUR billing
   const excessHours =
@@ -125,10 +126,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   const extraDropoffs = Decimal.max(d(0), d(input.numberOfDropoffs).sub(d(1)));
   const extraDropoffsFee = extraDropoffs.mul(additionalDropoffCharge);
 
-  const otherDirectSubtotal = condoFee
+  const otherDirectSubtotal = difficultAccess
     .add(cateringFee)
     .add(loadingFee)
-    .add(additionalHelperFee)
     .add(excessHoursFee)
     .add(extraDropoffsFee);
 
@@ -147,8 +147,11 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   }
 
   // ── Markup total ─────────────────────────────────────────────────────────
+  // Helper allocation scales linearly with crew size: every helper adds helperRate
+  // to the markup. Default 1 helper = 1 × helperRate (matches pre-refactor baseline).
+  const totalHelperRate = helperRate.mul(input.numberOfHelpers);
   const markupRate = driverRate
-    .add(helperRate)
+    .add(totalHelperRate)
     .add(overheadRate)
     .add(isLongDistance ? longDistanceRate : d(0));
 
@@ -162,9 +165,10 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
   const revenueNetOfVat = baseCosts.div(d(1).sub(markupRate));
 
   // ── Allocations (for reporting, sum to revenue − base) ───────────────────
+  // helper allocation is the *total* across all helpers (already scaled).
   const allocations: Allocations = {
     driver: dp2(revenueNetOfVat.mul(driverRate)),
-    helper: dp2(revenueNetOfVat.mul(helperRate)),
+    helper: dp2(revenueNetOfVat.mul(totalHelperRate)),
     overhead: dp2(revenueNetOfVat.mul(overheadRate)),
     longDistance: isLongDistance ? dp2(revenueNetOfVat.mul(longDistanceRate)) : 0,
   };
@@ -230,10 +234,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
 
   // ── Other direct costs breakdown for reporting ──────────────────────────
   const otherDirectCosts: OtherDirectCosts = {
-    condoFee: dp2(condoFee),
+    difficultAccessFee: dp2(difficultAccess),
     cateringFee: dp2(cateringFee),
     loadingUnloadingFee: dp2(loadingFee),
-    additionalHelperFee: dp2(additionalHelperFee),
     excessHoursFee: dp2(excessHoursFee),
     extraDropoffsFee: dp2(extraDropoffsFee),
     subtotal: dp2(otherDirectSubtotal),
@@ -277,10 +280,9 @@ export function computePrice(input: PricingInput, ctx: PricingContext): PricingR
       dieselPricePerLiter: settings.dieselPricePerLiter.toNumber(),
       distanceRatePerKm: settings.distanceRatePerKm.toNumber(),
       additionalHourRate: settings.additionalHourRate.toNumber(),
-      additionalHelperRate: settings.additionalHelperRate.toNumber(),
       additionalDropoffCharge: settings.additionalDropoffCharge.toNumber(),
       standardIncludedHours,
-      condoHandlingFee: settings.condoHandlingFee.toNumber(),
+      difficultAccessFee: settings.difficultAccessFee.toNumber(),
       cateringHandlingFee: settings.cateringHandlingFee.toNumber(),
       loadingUnloadingFee: settings.loadingUnloadingFee.toNumber(),
       vatRate: settings.vatRate.toNumber(),

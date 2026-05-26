@@ -22,11 +22,10 @@ interface Settings {
   dieselPricePerLiter: number;
   fuelFloor: number;
   fuelEfficiencyKmpl: number;
-  additionalHelperRate: number;
   additionalHourRate: number;
   additionalDropoffCharge: number;
   standardIncludedHours: number;
-  condoHandlingFee: number;
+  difficultAccessFee: number;
   cateringHandlingFee: number;
   loadingUnloadingFee: number;
   distanceRatePerKm: number;
@@ -34,6 +33,40 @@ interface Settings {
   updatedAt: string;
   updatedBy: string | null;
 }
+
+// Mirror of Settings but every numeric field is stored as a string while editing
+// so users can fully clear an input. Parsed back to numbers at compute / save time.
+type SettingsDraft = {
+  [K in keyof Settings]: Settings[K] extends number ? string : Settings[K];
+};
+
+function toDraft(s: Settings): SettingsDraft {
+  return {
+    driverRate: String(s.driverRate),
+    helperRate: String(s.helperRate),
+    overheadRate: String(s.overheadRate),
+    longDistanceRate: String(s.longDistanceRate),
+    longDistanceThresholdKm: String(s.longDistanceThresholdKm),
+    dieselPricePerLiter: String(s.dieselPricePerLiter),
+    fuelFloor: String(s.fuelFloor),
+    fuelEfficiencyKmpl: String(s.fuelEfficiencyKmpl),
+    additionalHourRate: String(s.additionalHourRate),
+    additionalDropoffCharge: String(s.additionalDropoffCharge),
+    standardIncludedHours: String(s.standardIncludedHours),
+    difficultAccessFee: String(s.difficultAccessFee),
+    cateringHandlingFee: String(s.cateringHandlingFee),
+    loadingUnloadingFee: String(s.loadingUnloadingFee),
+    distanceRatePerKm: String(s.distanceRatePerKm),
+    vatRate: String(s.vatRate),
+    updatedAt: s.updatedAt,
+    updatedBy: s.updatedBy,
+  };
+}
+
+// parse numeric draft fields with 0 fallback for empty/invalid; used only by the
+// in-memory live preview. Server zod validators are the source of truth on save.
+const n = (v: string): number => parseFloat(v) || 0;
+const ni = (v: string): number => parseInt(v, 10) || 0;
 
 interface TruckTypeRate {
   id: string;
@@ -43,6 +76,20 @@ interface TruckTypeRate {
   wheelType: string;
   eightHourBaseRate: number;
   perTripBaseRate: number;
+}
+
+// Editing variant — rates as strings so clearing the input survives.
+type TruckTypeRateDraft = Omit<TruckTypeRate, "eightHourBaseRate" | "perTripBaseRate"> & {
+  eightHourBaseRate: string;
+  perTripBaseRate: string;
+};
+
+function toTTDraft(rows: TruckTypeRate[]): TruckTypeRateDraft[] {
+  return rows.map((r) => ({
+    ...r,
+    eightHourBaseRate: String(r.eightHourBaseRate),
+    perTripBaseRate: String(r.perTripBaseRate),
+  }));
 }
 
 interface ChangelogEntry {
@@ -72,23 +119,65 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
   const [, startTransition] = useTransition();
 
   // ── Editable state ─────────────────────────────────────────────────────────
-  const [s, setS] = useState(settings);
-  const [tt, setTT] = useState(truckTypes);
+  // Numeric fields are stored as strings so clears (empty input) survive without snap-back.
+  const [s, setS] = useState<SettingsDraft>(() => toDraft(settings));
+  const [tt, setTT] = useState<TruckTypeRateDraft[]>(() => toTTDraft(truckTypes));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
 
-  // Track dirtiness vs. server values
+  // Track dirtiness vs. server values (compare against draft form of original)
   const isDirty = useMemo(() => {
-    if (JSON.stringify(s) !== JSON.stringify(settings)) return true;
+    if (JSON.stringify(s) !== JSON.stringify(toDraft(settings))) return true;
     return tt.some((t, i) => {
       const orig = truckTypes[i];
-      return t.eightHourBaseRate !== orig.eightHourBaseRate || t.perTripBaseRate !== orig.perTripBaseRate;
+      return n(t.eightHourBaseRate) !== orig.eightHourBaseRate || n(t.perTripBaseRate) !== orig.perTripBaseRate;
     });
   }, [s, tt, settings, truckTypes]);
 
-  const totalMarkup = s.driverRate + s.helperRate + s.overheadRate + s.longDistanceRate;
+  const totalMarkup = n(s.driverRate) + n(s.helperRate) + n(s.overheadRate) + n(s.longDistanceRate);
   const markupOk = totalMarkup < 100;
+
+  // Detect cleared fields so we can block Save — empty strings would otherwise
+  // coerce to 0 server-side and silently overwrite the live rate.
+  // Labels are user-facing; keys match the SettingsDraft shape.
+  const SETTINGS_NUMERIC_LABELS: Record<string, string> = {
+    driverRate: "Driver Rate",
+    helperRate: "Helper Rate",
+    overheadRate: "Overhead Rate",
+    longDistanceRate: "Long-Distance Surcharge",
+    longDistanceThresholdKm: "Long-Distance Threshold",
+    dieselPricePerLiter: "Diesel Price",
+    fuelFloor: "Fuel Floor",
+    fuelEfficiencyKmpl: "Fuel Efficiency",
+    additionalHourRate: "Additional Hour",
+    additionalDropoffCharge: "Extra Drop-off",
+    standardIncludedHours: "Standard Hours",
+    difficultAccessFee: "Difficult Access Fee",
+    cateringHandlingFee: "Catering Handling",
+    loadingUnloadingFee: "Loading / Unloading",
+    distanceRatePerKm: "Distance Rate",
+  };
+
+  const emptyFields = useMemo(() => {
+    const out: string[] = [];
+    for (const [k, label] of Object.entries(SETTINGS_NUMERIC_LABELS)) {
+      if (String(s[k as keyof SettingsDraft] ?? "").trim() === "") out.push(label);
+    }
+    // Truck base rates must be > 0 server-side; flag both empty and explicit 0.
+    for (const t of tt) {
+      if (t.eightHourBaseRate.trim() === "" || n(t.eightHourBaseRate) <= 0) {
+        out.push(`${t.label} 8-hour base`);
+      }
+      if (t.perTripBaseRate.trim() === "" || n(t.perTripBaseRate) <= 0) {
+        out.push(`${t.label} per-trip base`);
+      }
+    }
+    return out;
+  }, [s, tt]);
+
+  const hasEmpty = emptyFields.length > 0;
+  const canSave = isDirty && markupOk && !hasEmpty;
 
   // ── Live preview using the actual engine ──────────────────────────────────
   // Sample trip: 30km, EIGHT_HOUR, first truck type, VAT-EXCLUSIVE
@@ -101,36 +190,35 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
           estimatedJobHours: 8,
           tripBillingType: "EIGHT_HOUR",
           numberOfDropoffs: 1,
-          condoService: false,
+          numberOfHelpers: 1,
+          difficultAccess: false,
           cateringService: false,
-          additionalHelper: false,
           tollFee: 0,
           discountAmount: 0,
           vatOption: "VAT_EXCLUSIVE",
         },
         {
           truckType: {
-            eightHourBaseRate: new Decimal(tt[0].eightHourBaseRate),
-            perTripBaseRate: new Decimal(tt[0].perTripBaseRate),
+            eightHourBaseRate: new Decimal(n(tt[0].eightHourBaseRate)),
+            perTripBaseRate: new Decimal(n(tt[0].perTripBaseRate)),
           },
           settings: {
-            driverRate: w(s.driverRate / 100),
-            helperRate: w(s.helperRate / 100),
-            overheadRate: w(s.overheadRate / 100),
-            longDistanceRate: w(s.longDistanceRate / 100),
-            longDistanceThresholdKm: s.longDistanceThresholdKm,
-            dieselPricePerLiter: w(s.dieselPricePerLiter),
-            fuelFloor: w(s.fuelFloor),
-            fuelEfficiencyKmpl: w(s.fuelEfficiencyKmpl),
-            additionalHelperRate: w(s.additionalHelperRate),
-            additionalHourRate: w(s.additionalHourRate),
-            additionalDropoffCharge: w(s.additionalDropoffCharge),
-            standardIncludedHours: s.standardIncludedHours,
-            condoHandlingFee: w(s.condoHandlingFee),
-            cateringHandlingFee: w(s.cateringHandlingFee),
-            loadingUnloadingFee: w(s.loadingUnloadingFee),
-            distanceRatePerKm: w(s.distanceRatePerKm),
-            vatRate: w(s.vatRate / 100),
+            driverRate: w(n(s.driverRate) / 100),
+            helperRate: w(n(s.helperRate) / 100),
+            overheadRate: w(n(s.overheadRate) / 100),
+            longDistanceRate: w(n(s.longDistanceRate) / 100),
+            longDistanceThresholdKm: ni(s.longDistanceThresholdKm),
+            dieselPricePerLiter: w(n(s.dieselPricePerLiter)),
+            fuelFloor: w(n(s.fuelFloor)),
+            fuelEfficiencyKmpl: w(n(s.fuelEfficiencyKmpl)),
+            additionalHourRate: w(n(s.additionalHourRate)),
+            additionalDropoffCharge: w(n(s.additionalDropoffCharge)),
+            standardIncludedHours: ni(s.standardIncludedHours),
+            difficultAccessFee: w(n(s.difficultAccessFee)),
+            cateringHandlingFee: w(n(s.cateringHandlingFee)),
+            loadingUnloadingFee: w(n(s.loadingUnloadingFee)),
+            distanceRatePerKm: w(n(s.distanceRatePerKm)),
+            vatRate: w(n(s.vatRate) / 100),
           },
         },
       );
@@ -143,14 +231,16 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
   // Where does fuel floor kick in given current rates?
   const fuelFloorBreakeven = useMemo(() => {
     // floor = distance × 2 / eff × price → distance = floor × eff / (2 × price)
-    if (s.dieselPricePerLiter <= 0 || s.fuelEfficiencyKmpl <= 0) return null;
-    return (s.fuelFloor * s.fuelEfficiencyKmpl) / (2 * s.dieselPricePerLiter);
+    const diesel = n(s.dieselPricePerLiter);
+    const eff = n(s.fuelEfficiencyKmpl);
+    if (diesel <= 0 || eff <= 0) return null;
+    return (n(s.fuelFloor) * eff) / (2 * diesel);
   }, [s.fuelFloor, s.fuelEfficiencyKmpl, s.dieselPricePerLiter]);
 
   // ── Submit handler ────────────────────────────────────────────────────────
   function handleSaveClick(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!markupOk) return;
+    if (!canSave) return;
     setConfirmOpen(true);
   }
 
@@ -165,8 +255,8 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
       JSON.stringify(
         tt.map((t) => ({
           id: t.id,
-          eightHourBaseRate: t.eightHourBaseRate,
-          perTripBaseRate: t.perTripBaseRate,
+          eightHourBaseRate: n(t.eightHourBaseRate),
+          perTripBaseRate: n(t.perTripBaseRate),
         })),
       ),
     );
@@ -215,17 +305,34 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
           type="submit"
           form="pricing-config-form"
           data-btn
-          disabled={!isDirty || !markupOk}
+          disabled={!canSave}
           style={{
             ...primaryBtn,
-            opacity: !isDirty || !markupOk ? 0.5 : 1,
-            cursor: !isDirty || !markupOk ? "not-allowed" : "pointer",
+            opacity: canSave ? 1 : 0.5,
+            cursor: canSave ? "pointer" : "not-allowed",
           }}
+          title={
+            hasEmpty
+              ? `Cannot save — empty fields: ${emptyFields.join(", ")}`
+              : !markupOk
+                ? "Total markup must be < 100%"
+                : !isDirty
+                  ? "No changes to save"
+                  : undefined
+          }
         >
           Save changes
         </button>
       </PageHeader>
 
+      {hasEmpty && (
+        <Banner kind="warning">
+          <strong>Cannot save — fill in or restore:</strong> {emptyFields.join(", ")}.
+          <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+            Empty fields would save as ₱0 / 0%, silently overwriting the current rate. Type a value or click &quot;Reset to defaults&quot; to recover.
+          </div>
+        </Banner>
+      )}
       {state?.error && <Banner kind="error">{state.error}</Banner>}
       {state?.success && <Banner kind="success">Pricing config saved. The new rates apply to all future quotes.</Banner>}
       {resetState?.error && <Banner kind="error">{resetState.error}</Banner>}
@@ -251,7 +358,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     step={0.01}
                     style={input}
                     value={s.driverRate}
-                    onChange={(e) => setS({ ...s, driverRate: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, driverRate: e.target.value })}
                   />
                 </Field>
                 <Field label="Helper Rate" suffix="%">
@@ -261,7 +368,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     step={0.01}
                     style={input}
                     value={s.helperRate}
-                    onChange={(e) => setS({ ...s, helperRate: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, helperRate: e.target.value })}
                   />
                 </Field>
               </div>
@@ -276,7 +383,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     step={0.01}
                     style={input}
                     value={s.overheadRate}
-                    onChange={(e) => setS({ ...s, overheadRate: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, overheadRate: e.target.value })}
                   />
                 </Field>
                 <Field label="Long-Distance Surcharge" suffix="%">
@@ -286,7 +393,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     step={0.01}
                     style={input}
                     value={s.longDistanceRate}
-                    onChange={(e) => setS({ ...s, longDistanceRate: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, longDistanceRate: e.target.value })}
                   />
                 </Field>
                 <Field label="Threshold" suffix="km">
@@ -297,7 +404,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={1}
                     style={input}
                     value={s.longDistanceThresholdKm}
-                    onChange={(e) => setS({ ...s, longDistanceThresholdKm: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, longDistanceThresholdKm: e.target.value })}
                   />
                 </Field>
               </div>
@@ -331,7 +438,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0.01}
                     style={input}
                     value={s.dieselPricePerLiter}
-                    onChange={(e) => setS({ ...s, dieselPricePerLiter: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, dieselPricePerLiter: e.target.value })}
                   />
                 </Field>
                 <Field label="Fuel Floor" suffix="₱">
@@ -342,7 +449,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0}
                     style={input}
                     value={s.fuelFloor}
-                    onChange={(e) => setS({ ...s, fuelFloor: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, fuelFloor: e.target.value })}
                   />
                 </Field>
                 <Field label="Fuel Efficiency" suffix="km/L">
@@ -353,13 +460,13 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0.01}
                     style={input}
                     value={s.fuelEfficiencyKmpl}
-                    onChange={(e) => setS({ ...s, fuelEfficiencyKmpl: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, fuelEfficiencyKmpl: e.target.value })}
                   />
                 </Field>
               </div>
               {fuelFloorBreakeven !== null && (
                 <div style={hintStyle}>
-                  At current rates, the ₱{s.fuelFloor.toLocaleString("en-PH")} floor applies for trips below ~
+                  At current rates, the ₱{n(s.fuelFloor).toLocaleString("en-PH")} floor applies for trips below ~
                   {fuelFloorBreakeven.toFixed(1)} km.
                 </div>
               )}
@@ -396,7 +503,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                             value={t.eightHourBaseRate}
                             onChange={(e) => {
                               const next = [...tt];
-                              next[i] = { ...t, eightHourBaseRate: Number(e.target.value) };
+                              next[i] = { ...t, eightHourBaseRate: e.target.value };
                               setTT(next);
                             }}
                           />
@@ -410,7 +517,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                             value={t.perTripBaseRate}
                             onChange={(e) => {
                               const next = [...tt];
-                              next[i] = { ...t, perTripBaseRate: Number(e.target.value) };
+                              next[i] = { ...t, perTripBaseRate: e.target.value };
                               setTT(next);
                             }}
                           />
@@ -432,7 +539,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={1}
                     style={input}
                     value={s.standardIncludedHours}
-                    onChange={(e) => setS({ ...s, standardIncludedHours: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, standardIncludedHours: e.target.value })}
                   />
                 </Field>
                 <Field label="Additional Hour" suffix="₱">
@@ -443,18 +550,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0}
                     style={input}
                     value={s.additionalHourRate}
-                    onChange={(e) => setS({ ...s, additionalHourRate: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field label="Additional Helper" suffix="₱">
-                  <input
-                    name="additionalHelperRate"
-                    type="number"
-                    step={1}
-                    min={0}
-                    style={input}
-                    value={s.additionalHelperRate}
-                    onChange={(e) => setS({ ...s, additionalHelperRate: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, additionalHourRate: e.target.value })}
                   />
                 </Field>
                 <Field label="Extra Drop-off" suffix="₱">
@@ -465,18 +561,18 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0}
                     style={input}
                     value={s.additionalDropoffCharge}
-                    onChange={(e) => setS({ ...s, additionalDropoffCharge: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, additionalDropoffCharge: e.target.value })}
                   />
                 </Field>
-                <Field label="Condo Handling" suffix="₱">
+                <Field label="Difficult Access Fee" suffix="₱">
                   <input
-                    name="condoHandlingFee"
+                    name="difficultAccessFee"
                     type="number"
                     step={1}
                     min={0}
                     style={input}
-                    value={s.condoHandlingFee}
-                    onChange={(e) => setS({ ...s, condoHandlingFee: Number(e.target.value) })}
+                    value={s.difficultAccessFee}
+                    onChange={(e) => setS({ ...s, difficultAccessFee: e.target.value })}
                   />
                 </Field>
                 <Field label="Catering Handling" suffix="₱">
@@ -487,7 +583,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0}
                     style={input}
                     value={s.cateringHandlingFee}
-                    onChange={(e) => setS({ ...s, cateringHandlingFee: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, cateringHandlingFee: e.target.value })}
                   />
                 </Field>
                 <Field label="Loading / Unloading" suffix="₱">
@@ -498,7 +594,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0}
                     style={input}
                     value={s.loadingUnloadingFee}
-                    onChange={(e) => setS({ ...s, loadingUnloadingFee: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, loadingUnloadingFee: e.target.value })}
                   />
                 </Field>
                 <Field label="Distance Rate" suffix="₱/km">
@@ -509,7 +605,7 @@ export function PricingConfigForm({ settings, truckTypes, changelog }: Props) {
                     min={0}
                     style={input}
                     value={s.distanceRatePerKm}
-                    onChange={(e) => setS({ ...s, distanceRatePerKm: Number(e.target.value) })}
+                    onChange={(e) => setS({ ...s, distanceRatePerKm: e.target.value })}
                   />
                 </Field>
               </div>
@@ -706,12 +802,14 @@ function Divider() {
   return <div style={{ borderTop: "1px solid var(--border)", margin: "6px 0" }} />;
 }
 
-function Banner({ kind, children }: { kind: "error" | "success"; children: React.ReactNode }) {
-  const bg = kind === "error" ? "#fee2e2" : "#d1fae5";
-  const fg = kind === "error" ? "#991b1b" : "#065f46";
-  const border = kind === "error" ? "#fca5a5" : "#86efac";
+function Banner({ kind, children }: { kind: "error" | "success" | "warning"; children: React.ReactNode }) {
+  const palette = {
+    error: { bg: "#fee2e2", fg: "#991b1b", border: "#fca5a5" },
+    success: { bg: "#d1fae5", fg: "#065f46", border: "#86efac" },
+    warning: { bg: "#fef3c7", fg: "#854d0e", border: "#fde047" },
+  }[kind];
   return (
-    <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: bg, color: fg, border: `1px solid ${border}`, fontSize: 13 }}>
+    <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 6, background: palette.bg, color: palette.fg, border: `1px solid ${palette.border}`, fontSize: 13 }}>
       {children}
     </div>
   );
